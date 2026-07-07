@@ -2,8 +2,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v4.6 - Stable Edition",
-    LoadingSubtitle = "Sistema Corrigido Anti-Bug & Coleta",
+    LoadingTitle = "NunesUI Admin v5.0 - Infinity Edition",
+    LoadingSubtitle = "Auto-Recalcular Ativado & ESP Portão Total",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -133,7 +133,7 @@ local function itemEstaAtivoNoMundo(objeto)
 end
 
 -- =============================================================================
--- GERENCIADOR DE ESP E TRACERS (MINÉRIOS)
+-- GERENCIADOR DE ESP E TRACERS (MINÉRIOS - RECALCULO CONSTANTE)
 -- =============================================================================
 
 local function limparESP()
@@ -151,47 +151,70 @@ local function limparESP()
 end
 
 local function atualizarESP()
-    limparESP()
-    if not ESPAtivo then return end
+    if not ESPAtivo then 
+        limparESP()
+        return 
+    end
 
     local scraps = workspace:FindFirstChild("Scraps")
     if not scraps then return end
 
+    -- Remove Highlights de itens que sumiram
+    for i = #ArmazenamentoESP, 1, -1 do
+        local h = ArmazenamentoESP[i]
+        if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
+            if h then h:Destroy() end
+            table.remove(ArmazenamentoESP, i)
+        end
+    end
+
+    -- Cria ou atualiza
     for _, obj in ipairs(scraps:GetChildren()) do
         if itemEstaAtivoNoMundo(obj) then
-            local nomeL = string.lower(obj.Name)
-            local corMaterial = nil
+            if not obj:FindFirstChild("Nunes_ESP") then
+                local nomeL = string.lower(obj.Name)
+                local corMaterial = nil
 
-            if nomeL == "gold" then corMaterial = Color3.fromRGB(255, 215, 0)
-            elseif nomeL == "diamond" then corMaterial = Color3.fromRGB(0, 238, 255)
-            elseif nomeL == "copper" then corMaterial = Color3.fromRGB(211, 84, 0) end
+                if nomeL == "gold" then corMaterial = Color3.fromRGB(255, 215, 0)
+                elseif nomeL == "diamond" then corMaterial = Color3.fromRGB(0, 238, 255)
+                elseif nomeL == "copper" then corMaterial = Color3.fromRGB(211, 84, 0) end
 
-            if corMaterial then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "Nunes_ESP"
-                highlight.FillColor = corMaterial
-                highlight.FillTransparency = 0.7
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                highlight.OutlineTransparency = 0
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.Adornee = obj
-                highlight.Parent = obj
-                table.insert(ArmazenamentoESP, highlight)
+                if corMaterial then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "Nunes_ESP"
+                    highlight.FillColor = corMaterial
+                    highlight.FillTransparency = 0.7
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.OutlineTransparency = 0
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlight.Adornee = obj
+                    highlight.Parent = obj
+                    table.insert(ArmazenamentoESP, highlight)
 
-                local parteFisica = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                if parteFisica then
-                    local linhaTracer = Drawing.new("Line")
-                    linhaTracer.Visible = false
-                    linhaTracer.Color = Color3.fromRGB(255, 255, 255)
-                    linhaTracer.Thickness = 1.5
-                    linhaTracer.Transparency = 0.7
-                    
-                    table.insert(ArmazenamentoLinhas, {Linha = linhaTracer, Alvo = parteFisica})
+                    local parteFisica = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                    if parteFisica then
+                        local linhaTracer = Drawing.new("Line")
+                        linhaTracer.Visible = false
+                        linhaTracer.Color = Color3.fromRGB(255, 255, 255)
+                        linhaTracer.Thickness = 1.5
+                        linhaTracer.Transparency = 0.7
+                        
+                        table.insert(ArmazenamentoLinhas, {Linha = linhaTracer, Alvo = parteFisica})
+                    end
                 end
             end
         end
     end
 end
+
+-- Loop de recálculo constante de materiais em tempo real (Sem lag)
+task.spawn(function()
+    while task.wait(0.5) do
+        if ESPAtivo then
+            pcall(atualizarESP)
+        end
+    end
+end)
 
 -- =============================================================================
 -- GERENCIADOR: ESP DE MONSTROS
@@ -228,7 +251,7 @@ local function atualizarESPMonstros()
 end
 
 task.spawn(function()
-    while task.wait(3) do
+    while task.wait(2) do
         if ESPMonstrosAtivo then
             pcall(atualizarESPMonstros)
         end
@@ -236,7 +259,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- GERENCIADOR: ESP DE PORTÕES (DETECTA EM TEMPO REAL)
+-- GERENCIADOR: ESP DE PORTÕES REAIS (DÁ ESP NO PORTÃO INTEIRO, NÃO NO BOTÃO)
 -- =============================================================================
 
 local function limparESPPortoes()
@@ -252,25 +275,25 @@ local function atualizarESPPortoes()
 
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "ButtonDoor" then
-            local button = obj:FindFirstChild("Button")
-            local alvoAdornee = button or obj
+            -- Define o alvo como o portão real (o Parent do ButtonDoor, ou o próprio se não houver pai estrutural)
+            local alvoPortaoReal = obj.Parent or obj
             
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_PortaoESP"
-            highlight.FillColor = Color3.fromRGB(0, 255, 150)
+            highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda
             highlight.FillTransparency = 0.5
             highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
             highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Adornee = alvoAdornee
-            highlight.Parent = alvoAdornee
+            highlight.Adornee = alvoPortaoReal
+            highlight.Parent = alvoPortaoReal
             table.insert(ArmazenamentoESPPortoes, highlight)
         end
     end
 end
 
 task.spawn(function()
-    while task.wait(4) do
+    while task.wait(2) do
         if ESPPortoesAtivo then
             pcall(atualizarESPPortoes)
         end
@@ -283,7 +306,8 @@ RunService.RenderStepped:Connect(function()
     local origemX = Camera.ViewportSize.X / 2
     local origemY = Camera.ViewportSize.Y
 
-    for _, dados in ipairs(ArmazenamentoLinhas) do
+    for i = #ArmazenamentoLinhas, 1, -1 do
+        local dados = ArmazenamentoLinhas[i]
         pcall(function()
             local linha = dados.Linha
             local alvo = dados.Alvo
@@ -299,13 +323,15 @@ RunService.RenderStepped:Connect(function()
                 end
             else
                 linha.Visible = false
+                pcall(function() linha:Remove() end)
+                table.remove(ArmazenamentoLinhas, i)
             end
         end)
     end
 end)
 
 -- =============================================================================
--- SISTEMA DE COLETA RESILIENTE (CORRIGIDO)
+-- SISTEMA DE COLETA RESILIENTE
 -- =============================================================================
 
 local function executarColetaMateriais(nomeItem)
@@ -452,7 +478,7 @@ TabGeral:CreateButton({
 })
 
 -- =============================================================================
--- CATEGORIA: COLETA AUTOMÁTICA (CORRIGIDA)
+-- CATEGORIA: COLETA AUTOMÁTICA
 -- =============================================================================
 
 TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
@@ -511,29 +537,17 @@ TabVenda:CreateButton({
 -- =============================================================================
 
 TabVisual:CreateToggle({
-    Name = "Ver Materiais (Contorno e Linhas Brancas em Minérios)",
+    Name = "Ver Materiais (Auto-Recalcular a Todo Momento)",
     CurrentValue = false,
     Flag = "ToggleESPCompletoNunes",
     Callback = function(Value)
         ESPAtivo = Value
         if ESPAtivo then
             atualizarESP()
-            logarAcao("Rastreamento", "ESP e Linhas Tracers de Minérios Ativados.")
+            logarAcao("Rastreamento", "ESP Inteligente e Constante Ativado.")
         else
             limparESP()
             logarAcao("Rastreamento", "Filtros visuais limpos e desativados.")
-        end
-    end
-})
-
-TabVisual:CreateButton({
-    Name = "Forçar Recalcular Mapa (Oculta Itens Coletados/Fantasmas)",
-    Callback = function()
-        if ESPAtivo then
-            atualizarESP()
-            logarAcao("Rastreamento", "Varredura refeita. Itens coletados por outros foram descartados.")
-        else
-            logarAcao("Aviso", "Ative a opção 'Ver Materiais' acima antes de atualizar.")
         end
     end
 })
@@ -567,17 +581,17 @@ TabVisual:CreateToggle({
 })
 
 TabVisual:CreateToggle({
-    Name = "ESP Portões (ButtonDoor) em Tempo Real",
+    Name = "ESP Portões Reais (Contorno no Portão Inteiro)",
     CurrentValue = false,
     Flag = "ToggleESPPortoesNunes",
     Callback = function(Value)
         ESPPortoesAtivo = Value
         if ESPPortoesAtivo then
             atualizarESPPortoes()
-            logarAcao("Rastreamento", "Filtro visual de portões (ButtonDoor) Ativado.")
+            logarAcao("Rastreamento", "ESP no modelo dos Portões Ativado.")
         else
             limparESPPortoes()
-            logarAcao("Rastreamento", "Filtro visual de portões desativado.")
+            logarAcao("Rastreamento", "ESP de Portões Desativado.")
         end
     end
 })
@@ -633,7 +647,6 @@ TabMonstros:CreateButton({ Name = "Teleportar para Scar", Callback = function() 
 
 workspace.DescendantAdded:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
-        task.wait(0.4)
         pcall(atualizarESP)
     end
     if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
