@@ -2,8 +2,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v4.0 - Beast Edition", -- Nome da versão atualizado
-    LoadingSubtitle = "Sistema Inteligente Anti-Lag & Teleport",
+    LoadingTitle = "NunesUI Admin v4.5 - Gatekeeper Edition", -- Nome da versão atualizado
+    LoadingSubtitle = "Sistema Inteligente Anti-Lag & Portões",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -26,9 +26,11 @@ local Camera = workspace.CurrentCamera
 local LoopColorirAtivo = false
 local ESPAtivo = false
 local ESPMonstrosAtivo = false
+local ESPPortoesAtivo = false -- Novo Estado para Portões
 local ArmazenamentoESP = {}
 local ArmazenamentoLinhas = {}
 local ArmazenamentoESPMonstros = {}
+local ArmazenamentoESPPortoes = {} -- Novo Armazenamento para Portões
 
 -- Filtro Rígido de Materiais Aceitos (Estritamente em Minúsculo)
 local mineriosPermitidos = { ["gold"] = true, ["diamond"] = true, ["copper"] = true }
@@ -78,7 +80,6 @@ local function teleportarParaMonstro(nomeMonstro)
     if monstro then
         local parteAlvo = monstro:IsA("BasePart") and monstro or monstro:FindFirstChildWhichIsA("BasePart", true)
         if parteAlvo then
-            -- Teleporta 4 studs acima da posição do monstro para evitar colisões ruins
             hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 4, 0)
             logarAcao("Teleporte", "Você foi levado até: " .. nomeMonstro)
         else
@@ -230,6 +231,50 @@ task.spawn(function()
     while task.wait(3) do
         if ESPMonstrosAtivo then
             atualizarESPMonstros()
+        end
+    end
+end)
+
+-- =============================================================================
+-- GERENCIADOR: ESP DE PORTÕES (DETECTA EM TEMPO REAL)
+-- =============================================================================
+
+local function limparESPPortoes()
+    for _, esp in ipairs(ArmazenamentoESPPortoes) do
+        if esp then esp:Destroy() end
+    end
+    ArmazenamentoESPPortoes = {}
+end
+
+local function atualizarESPPortoes()
+    limparESPPortoes()
+    if not ESPPortoesAtivo then return end
+
+    -- Busca todos os objetos chamados "ButtonDoor" de forma recursiva
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "ButtonDoor" then
+            local button = obj:FindFirstChild("Button")
+            local alvoAdornee = button or obj
+            
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "Nunes_PortaoESP"
+            highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda Brilhante para destacar os portões
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Adornee = alvoAdornee
+            highlight.Parent = alvoAdornee
+            table.insert(ArmazenamentoESPPortoes, highlight)
+        end
+    end
+end
+
+-- Loop para manter o ESP dos portões atualizado caso o mapa mude
+task.spawn(function()
+    while task.wait(4) do
+        if ESPPortoesAtivo then
+            atualizarESPPortoes()
         end
     end
 end)
@@ -391,19 +436,20 @@ TabGeral:CreateButton({
         local posOriginal = hrp.CFrame
         local executadas = 0
 
-        for _, obj in ipairs(workspace:GetChildren()) do
-            local buttonDoor = obj:FindFirstChild("ButtonDoor")
-            local button = buttonDoor and buttonDoor:FindFirstChild("Button")
-            if button and button:IsA("BasePart") then
-                hrp.CFrame = button.CFrame
-                task.wait(0.3)
-                interagirComObjeto(button)
-                executadas = executadas + 1
-                logarAcao("Logs de Portas", "Modificando estado da porta n°: " .. executadas, 0.5)
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "ButtonDoor" then
+                local button = obj:FindFirstChild("Button")
+                if button and button:IsA("BasePart") then
+                    hrp.CFrame = button.CFrame
+                    task.wait(0.3)
+                    interagirComObjeto(button)
+                    executadas = executadas + 1
+                    logarAcao("Logs de Portas", "Modificando estado da porta n°: " .. executadas, 0.5)
+                end
             end
         end
         hrp.CFrame = posOriginal
-        logarAcao("Portas Sincronizadas", "Varredura de mechanisms de portas encerrada.", 3)
+        logarAcao("Portas Sincronizadas", "Varredura de mecanismos de portas encerrada.", 3)
     end
 })
 
@@ -411,9 +457,9 @@ TabGeral:CreateButton({
 -- CATEGORIA: COLETA AUTOMÁTICA
 -- =============================================================================
 
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMaterials("Gold") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMaterials("Diamond") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMaterials("Copper") end })
 
 -- =============================================================================
 -- CATEGORIA: VENDA AUTOMATIZADA
@@ -522,8 +568,25 @@ TabVisual:CreateToggle({
     end
 })
 
+-- NOVA OPÇÃO ADICIONADA: TOGGLE PARA ESP DE PORTÕES EM TEMPO REAL
+TabVisual:CreateToggle({
+    Name = "ESP Portões (ButtonDoor) em Tempo Real",
+    CurrentValue = false,
+    Flag = "ToggleESPPortoesNunes",
+    Callback = function(Value)
+        ESPPortoesAtivo = Value
+        if ESPPortoesAtivo then
+            atualizarESPPortoes()
+            logarAcao("Rastreamento", "Filtro visual de portões (ButtonDoor) Ativado.")
+        else
+            limparESPPortoes()
+            logarAcao("Rastreamento", "Filtro visual de portões desativado.")
+        end
+    end
+})
+
 -- =============================================================================
--- CATEGORIA: TELEPORTES & MONSTROS (COM SISTEMA DE TELEPORTE ALVO)
+-- CATEGORIA: TELEPORTES & MONSTROS
 -- =============================================================================
 
 TabMonstros:CreateToggle({
@@ -556,7 +619,6 @@ TabMonstros:CreateButton({
     end
 })
 
--- Seção de Botões de Teleporte Direto para cada Monstro
 TabMonstros:CreateLabel("--- Teleporte Direto para Monstros ---")
 
 TabMonstros:CreateButton({ Name = "Teleportar para Dus", Callback = function() teleportarParaMonstro("Dus") end })
@@ -577,10 +639,19 @@ workspace.DescendantAdded:Connect(function(descendente)
         task.wait(0.4)
         atualizarESP()
     end
+    -- Detecta novos portões adicionados dinamicamente no jogo
+    if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
+        task.wait(0.2)
+        atualizarESPPortoes()
+    end
 end)
 
 workspace.DescendantRemoving:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
         atualizarESP()
+    end
+    -- Limpa referências se um portão sumir do mapa
+    if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
+        atualizarESPPortoes()
     end
 end)
