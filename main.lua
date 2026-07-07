@@ -2,8 +2,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v4.5 - Gatekeeper Edition", -- Nome da versão atualizado
-    LoadingSubtitle = "Sistema Inteligente Anti-Lag & Portões",
+    LoadingTitle = "NunesUI Admin v4.6 - Stable Edition",
+    LoadingSubtitle = "Sistema Corrigido Anti-Bug & Coleta",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -26,11 +26,11 @@ local Camera = workspace.CurrentCamera
 local LoopColorirAtivo = false
 local ESPAtivo = false
 local ESPMonstrosAtivo = false
-local ESPPortoesAtivo = false -- Novo Estado para Portões
+local ESPPortoesAtivo = false
 local ArmazenamentoESP = {}
 local ArmazenamentoLinhas = {}
 local ArmazenamentoESPMonstros = {}
-local ArmazenamentoESPPortoes = {} -- Novo Armazenamento para Portões
+local ArmazenamentoESPPortoes = {}
 
 -- Filtro Rígido de Materiais Aceitos (Estritamente em Minúsculo)
 local mineriosPermitidos = { ["gold"] = true, ["diamond"] = true, ["copper"] = true }
@@ -230,7 +230,7 @@ end
 task.spawn(function()
     while task.wait(3) do
         if ESPMonstrosAtivo then
-            atualizarESPMonstros()
+            pcall(atualizarESPMonstros)
         end
     end
 end)
@@ -250,7 +250,6 @@ local function atualizarESPPortoes()
     limparESPPortoes()
     if not ESPPortoesAtivo then return end
 
-    -- Busca todos os objetos chamados "ButtonDoor" de forma recursiva
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "ButtonDoor" then
             local button = obj:FindFirstChild("Button")
@@ -258,7 +257,7 @@ local function atualizarESPPortoes()
             
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_PortaoESP"
-            highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda Brilhante para destacar os portões
+            highlight.FillColor = Color3.fromRGB(0, 255, 150)
             highlight.FillTransparency = 0.5
             highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
             highlight.OutlineTransparency = 0
@@ -270,11 +269,10 @@ local function atualizarESPPortoes()
     end
 end
 
--- Loop para manter o ESP dos portões atualizado caso o mapa mude
 task.spawn(function()
     while task.wait(4) do
         if ESPPortoesAtivo then
-            atualizarESPPortoes()
+            pcall(atualizarESPPortoes)
         end
     end
 end)
@@ -307,12 +305,12 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================================================
--- SISTEMA DE COLETA RESILIENTE
+-- SISTEMA DE COLETA RESILIENTE (CORRIGIDO)
 -- =============================================================================
 
 local function executarColetaMateriais(nomeItem)
     local hrp = getHRP()
-    if not hrp then return end
+    if not hrp then return logarAcao("Erro", "Não foi possível encontrar o HumanoidRootPart.") end
     
     local posOriginal = hrp.CFrame
     local scraps = workspace:FindFirstChild("Scraps")
@@ -336,12 +334,12 @@ local function executarColetaMateriais(nomeItem)
             local parte = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
             if parte then
                 hrp.CFrame = parte.CFrame
-                task.wait(0.2)
+                task.wait(0.25)
 
                 local tentativas = 0
-                while obj and obj.Parent and itemEstaAtivoNoMundo(obj) and tentativas < 10 do
+                while obj and obj.Parent and itemEstaAtivoNoMundo(obj) and tentativas < 8 do
                     interagirComObjeto(obj)
-                    task.wait(0.25)
+                    task.wait(0.2)
                     tentativas = tentativas + 1
                 end
 
@@ -355,7 +353,7 @@ local function executarColetaMateriais(nomeItem)
     
     hrp.CFrame = posOriginal
     logarAcao("Coleta Encerrada", "Operação concluída. Coletados com êxito: " .. contadorReal .. " de " .. total, 3)
-    atualizarESP()
+    pcall(atualizarESP)
 end
 
 -- =============================================================================
@@ -454,12 +452,12 @@ TabGeral:CreateButton({
 })
 
 -- =============================================================================
--- CATEGORIA: COLETA AUTOMÁTICA
+-- CATEGORIA: COLETA AUTOMÁTICA (CORRIGIDA)
 -- =============================================================================
 
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMaterials("Gold") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMaterials("Diamond") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMaterials("Copper") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
 
 -- =============================================================================
 -- CATEGORIA: VENDA AUTOMATIZADA
@@ -568,7 +566,6 @@ TabVisual:CreateToggle({
     end
 })
 
--- NOVA OPÇÃO ADICIONADA: TOGGLE PARA ESP DE PORTÕES EM TEMPO REAL
 TabVisual:CreateToggle({
     Name = "ESP Portões (ButtonDoor) em Tempo Real",
     CurrentValue = false,
@@ -637,21 +634,19 @@ TabMonstros:CreateButton({ Name = "Teleportar para Scar", Callback = function() 
 workspace.DescendantAdded:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
         task.wait(0.4)
-        atualizarESP()
+        pcall(atualizarESP)
     end
-    -- Detecta novos portões adicionados dinamicamente no jogo
     if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
         task.wait(0.2)
-        atualizarESPPortoes()
+        pcall(atualizarESPPortoes)
     end
 end)
 
 workspace.DescendantRemoving:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
-        atualizarESP()
+        pcall(atualizarESP)
     end
-    -- Limpa referências se um portão sumir do mapa
     if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
-        atualizarESPPortoes()
+        pcall(atualizarESPPortoes)
     end
 end)
