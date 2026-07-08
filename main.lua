@@ -2,8 +2,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v5.0 - Infinity Edition",
-    LoadingSubtitle = "Auto-Recalcular Ativado & ESP Portão Total",
+    LoadingTitle = "NunesUI Admin v5.5 - Perfect Gate",
+    LoadingSubtitle = "Foco em Object_0 & Auto-Recalcular",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -159,7 +159,6 @@ local function atualizarESP()
     local scraps = workspace:FindFirstChild("Scraps")
     if not scraps then return end
 
-    -- Remove Highlights de itens que sumiram
     for i = #ArmazenamentoESP, 1, -1 do
         local h = ArmazenamentoESP[i]
         if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
@@ -168,7 +167,6 @@ local function atualizarESP()
         end
     end
 
-    -- Cria ou atualiza
     for _, obj in ipairs(scraps:GetChildren()) do
         if itemEstaAtivoNoMundo(obj) then
             if not obj:FindFirstChild("Nunes_ESP") then
@@ -207,7 +205,6 @@ local function atualizarESP()
     end
 end
 
--- Loop de recálculo constante de materiais em tempo real (Sem lag)
 task.spawn(function()
     while task.wait(0.5) do
         if ESPAtivo then
@@ -259,7 +256,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- GERENCIADOR: ESP DE PORTÕES REAIS (DÁ ESP NO PORTÃO INTEIRO, NÃO NO BOTÃO)
+-- GERENCIADOR: ESP DE PORTÕES (MIRA EXATAMENTE EM OBJECT_0 DENTRO DE BUTTONDOOR)
 -- =============================================================================
 
 local function limparESPPortoes()
@@ -273,27 +270,30 @@ local function atualizarESPPortoes()
     limparESPPortoes()
     if not ESPPortoesAtivo then return end
 
+    -- Percorre de forma inteligente e recursiva procurando as estruturas ButtonDoor
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "ButtonDoor" then
-            -- Define o alvo como o portão real (o Parent do ButtonDoor, ou o próprio se não houver pai estrutural)
-            local alvoPortaoReal = obj.Parent or obj
+            -- Procura pelo Object_0 legítimo que está especificamente dentro deste ButtonDoor
+            local portaoAlvo = obj:FindFirstChild("Object_0")
             
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "Nunes_PortaoESP"
-            highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda
-            highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Adornee = alvoPortaoReal
-            highlight.Parent = alvoPortaoReal
-            table.insert(ArmazenamentoESPPortoes, highlight)
+            if portaoAlvo and portaoAlvo:IsA("BasePart") then
+                local highlight = Instance.new("Highlight")
+                highlight.Name = "Nunes_PortaoESP"
+                highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda Vibrante
+                highlight.FillTransparency = 0.5
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.OutlineTransparency = 0
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Adornee = portaoAlvo
+                highlight.Parent = portaoAlvo
+                table.insert(ArmazenamentoESPPortoes, highlight)
+            end
         end
     end
 end
 
 task.spawn(function()
-    while task.wait(2) do
+    while task.wait(1.5) do
         if ESPPortoesAtivo then
             pcall(atualizarESPPortoes)
         end
@@ -581,14 +581,14 @@ TabVisual:CreateToggle({
 })
 
 TabVisual:CreateToggle({
-    Name = "ESP Portões Reais (Contorno no Portão Inteiro)",
+    Name = "ESP Portões Reais (Foco: Object_0)",
     CurrentValue = false,
     Flag = "ToggleESPPortoesNunes",
     Callback = function(Value)
         ESPPortoesAtivo = Value
         if ESPPortoesAtivo then
             atualizarESPPortoes()
-            logarAcao("Rastreamento", "ESP no modelo dos Portões Ativado.")
+            logarAcao("Rastreamento", "ESP focado no Object_0 dos Portões Ativado.")
         else
             limparESPPortoes()
             logarAcao("Rastreamento", "ESP de Portões Desativado.")
@@ -649,7 +649,7 @@ workspace.DescendantAdded:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
         pcall(atualizarESP)
     end
-    if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
+    if ESPPortoesAtivo and descendente.Name == "Object_0" and descendente.Parent and descendente.Parent.Name == "ButtonDoor" then
         task.wait(0.2)
         pcall(atualizarESPPortoes)
     end
@@ -659,7 +659,7 @@ workspace.DescendantRemoving:Connect(function(descendente)
     if ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
         pcall(atualizarESP)
     end
-    if ESPPortoesAtivo and descendente.Name == "ButtonDoor" then
+    if ESPPortoesAtivo and descendente.Name == "Object_0" then
         pcall(atualizarESPPortoes)
     end
 end)
