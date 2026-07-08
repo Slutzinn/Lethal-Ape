@@ -436,7 +436,7 @@ end
 
 local FullbrightAtivo = false
 TabGeral:CreateButton({
-    Name = "Alternar Fullbright (Remover Sombras e Névoa)",
+    Name = "Ativar/Desativar Fullbright",
     Callback = function()
         FullbrightAtivo = not FullbrightAtivo
         if FullbrightAtivo then
@@ -454,7 +454,7 @@ TabGeral:CreateButton({
 })
 
 TabGeral:CreateButton({
-    Name = "Interagir com as Portas (Teleporta e Aciona Sequencialmente)",
+    Name = "Abrir/Fechar todas as Portas",
     Callback = function()
         local hrp = getHRP()
         local posOriginal = hrp.CFrame
@@ -490,7 +490,7 @@ TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)",
 -- =============================================================================
 
 TabVenda:CreateButton({
-    Name = "Vender Itens Filtrados (Apenas Gold, Diamond, Copper)",
+    Name = "Vender Itens (Apenas Gold, Diamond, Copper)",
     Callback = function()
         local hrp = getHRP()
         local char = LocalPlayer.Character
@@ -537,14 +537,14 @@ TabVenda:CreateButton({
 -- =============================================================================
 
 TabVisual:CreateToggle({
-    Name = "Ver Materiais (Auto-Recalcular a Todo Momento)",
+    Name = "ESP Minerios (Auto-achar a Todo Momento)",
     CurrentValue = false,
     Flag = "ToggleESPCompletoNunes",
     Callback = function(Value)
         ESPAtivo = Value
         if ESPAtivo then
             atualizarESP()
-            logarAcao("Rastreamento", "ESP Inteligente e Constante Ativado.")
+            logarAcao("Rastreamento", "ESP Constante Ativado.")
         else
             limparESP()
             logarAcao("Rastreamento", "Filtros visuais limpos e desativados.")
@@ -553,7 +553,7 @@ TabVisual:CreateToggle({
 })
 
 TabVisual:CreateToggle({
-    Name = "Loop Alteração de Cores do Avatar (Sem Logs)",
+    Name = "Skin Arco-íris",
     CurrentValue = false,
     Flag = "ToggleColorirNunes",
     Callback = function(Value)
@@ -581,14 +581,14 @@ TabVisual:CreateToggle({
 })
 
 TabVisual:CreateToggle({
-    Name = "ESP Portões Reais (Foco: Object_0)",
+    Name = "ESP Portões",
     CurrentValue = false,
     Flag = "ToggleESPPortoesNunes",
     Callback = function(Value)
         ESPPortoesAtivo = Value
         if ESPPortoesAtivo then
             atualizarESPPortoes()
-            logarAcao("Rastreamento", "ESP focado no Object_0 dos Portões Ativado.")
+            logarAcao("Rastreamento", "ESP focado nos Portōes Ativado.")
         else
             limparESPPortoes()
             logarAcao("Rastreamento", "ESP de Portões Desativado.")
@@ -601,7 +601,7 @@ TabVisual:CreateToggle({
 -- =============================================================================
 
 TabMonstros:CreateToggle({
-    Name = "ESP Monstros Completo (Dus, Gus, Kus, Lost, Ashy, Lurker, SandMan, Scar)",
+    Name = "ESP Monstros (Dus, Gus, Kus, Lost, Ashy, Lurker, SandMan, Scar)",
     CurrentValue = false,
     Flag = "ToggleESPMonstros",
     Callback = function(Value)
@@ -617,7 +617,7 @@ TabMonstros:CreateToggle({
 })
 
 TabMonstros:CreateButton({
-    Name = "Teleportar para o SpawnLocation",
+    Name = "Teleportar para o Spawn",
     Callback = function()
         local hrp = getHRP()
         local spawnLocation = workspace:FindFirstChild("SpawnLocation")
