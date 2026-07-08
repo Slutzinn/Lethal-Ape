@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v5.5 - Perfect Gate",
-    LoadingSubtitle = "Foco em Object_0 & Auto-Recalcular",
+    Name = "Lethal Ape",
+    LoadingTitle = "Initializing Lethal Ape",
+    LoadingSubtitle = "Loading modules...",
     ConfigurationSaving = {
         Enabled = false
     }
