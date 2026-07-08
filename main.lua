@@ -2,12 +2,11 @@
 -- ANTI-REEXECUÇÃO E LIMPEZA DE CONFIGURAÇÕES ANTERIORES
 -- =============================================================================
 if _G.NunesUIScriptExecutado then
-    -- Se o script já rodou antes, força o desligamento dos loops antigos
     _G.ESPAtivo = false
     _G.ESPPortoesAtivo = false
     _G.ESPMonstrosAtivo = false
     _G.LoopColorirAtivo = false
-    task.wait(0.3) -- Pequena pausa para os loops antigos finalizarem com segurança
+    task.wait(0.3)
 end
 
 _G.NunesUIScriptExecutado = true
@@ -20,14 +19,14 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v6.0 - Ultimate Edition",
-    LoadingSubtitle = "Filtro Total de Portões & Anti-Itens Fantasmas",
+    LoadingTitle = "NunesUI Admin v6.5 - Definitive Edition",
+    LoadingSubtitle = "Sistema Completo Restaurado & Sem Bugs",
     ConfigurationSaving = {
         Enabled = false
     }
 })
 
--- Categorias de Interface
+-- Categorias de Interface Totalmente Restauradas
 local TabGeral = Window:CreateTab("Utilidades Gerais", 4483362458)
 local TabColeta = Window:CreateTab("Coleta Automática", 4483362458)
 local TabVenda = Window:CreateTab("Venda Automatizada", 4483362458)
@@ -65,20 +64,16 @@ local function getHRP()
     return char:WaitForChild("HumanoidRootPart", 5)
 end
 
--- Validador Rígido de Itens Fantasmas (Filtra Transparência, Colisão e Existência Física)
+-- Validador Rígido de Itens Fantasmas
 local function itemEstaAtivoNoMundo(objeto)
     if not objeto or not objeto.Parent then return false end
-    
-    -- Se for um modelo, procura a parte principal
     local parte = objeto:IsA("BasePart") and objeto or objeto:FindFirstChildWhichIsA("BasePart", true)
     if not parte then return false end
 
-    -- Verificação de rede rigorosa contra drops fantasmas/falsos positivos
     if parte.Transparency >= 0.85 and not parte.CanCollide and not parte.CanTouch then
         return false
     end
     
-    -- Garante que o item não foi jogado no Limbo (Y extremamente baixo ou alto devido a bugs de física)
     if parte.Position.Y < -500 or parte.Position.Y > 5000 then
         return false
     end
@@ -86,7 +81,7 @@ local function itemEstaAtivoNoMundo(objeto)
     return true
 end
 
--- Mecanismo de Interação com Redundância Contra Oscilações de Conexão
+-- Mecanismo de Interação com Redundância
 local function interagirComObjeto(instancia)
     if not instancia then return end
     
@@ -108,7 +103,7 @@ local function interagirComObjeto(instancia)
 end
 
 -- =============================================================================
--- GERENCIADOR DE ESP E TRACERS (MINÉRIOS - SEM FANTASMAS)
+-- GERENCIADOR DE ESP E TRACERS (MINÉRIOS - CONSTANTE E SEM ITENS FANTASMAS)
 -- =============================================================================
 
 local function limparESP()
@@ -134,7 +129,6 @@ local function atualizarESP()
     local scraps = workspace:FindFirstChild("Scraps")
     if not scraps then return end
 
-    -- Limpeza imediata de referências mortas ou invisíveis
     for i = #ArmazenamentoESP, 1, -1 do
         local h = ArmazenamentoESP[i]
         if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
@@ -191,7 +185,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- GERENCIADOR: ESP DE PORTÕES DINÂMICO (PEGA TODOS INDEPENDENTE DA ESTRUTURA)
+-- GERENCIADOR: ESP DE PORTÕES DINÂMICO (PEGA TODOS OS MODELOS DO MAPA)
 -- =============================================================================
 
 local function limparESPPortoes()
@@ -205,24 +199,19 @@ local function atualizarESPPortoes()
     limparESPPortoes()
     if not _G.ESPPortoesAtivo then return end
 
-    -- Varre toda a workspace ignorando índices específicos [] de tabelas estáticas
     for _, obj in ipairs(workspace:GetDescendants()) do
         local alvoPortao = nil
         
-        -- Condição 1: Sistema do portão diferente com Object_0 interno
         if obj.Name == "ButtonDoor" then
             alvoPortao = obj:FindFirstChild("Object_0")
-        
-        -- Condição 2: Sistema dos demais portões usando Door2
         elseif obj.Name == "Door2" and obj:IsA("BasePart") then
             alvoPortao = obj
         end
         
-        -- Se encontrar uma das estruturas válidas, aplica o contorno
         if alvoPortao and alvoPortao:IsA("BasePart") then
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_PortaoESP"
-            highlight.FillColor = Color3.fromRGB(0, 255, 150) -- Verde Esmeralda
+            highlight.FillColor = Color3.fromRGB(0, 255, 150)
             highlight.FillTransparency = 0.5
             highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
             highlight.OutlineTransparency = 0
@@ -243,9 +232,6 @@ task.spawn(function()
     end
 end)
 
--- =============================================================================
--- RENDER DOS TRACERS EM TEMPO REAL
--- =============================================================================
 RunService.RenderStepped:Connect(function()
     if not _G.ESPAtivo then return end
     
@@ -277,8 +263,9 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================================================
--- SISTEMA DE COLETA RESILIENTE (CORRIGIDO PARA IGNORAR ITENS FANTASMAS)
+-- SISTEMA DE COLETA RESILIENTE
 -- =============================================================================
+
 local function executarColetaMateriais(nomeItem)
     local hrp = getHRP()
     if not hrp then return logarAcao("Erro", "Não foi possível encontrar o HumanoidRootPart.") end
@@ -295,7 +282,7 @@ local function executarColetaMateriais(nomeItem)
     end
 
     local total = #alvos
-    if total == 0 then return logarAcao("Coleta", "Nenhum " .. nomeItem .. " legítimo encontrado no momento.") end
+    if total == 0 then return logarAcao("Coleta", "Nenhum " .. nomeItem .. " legítimo encontrado.") end
 
     logarAcao("Fila de Coleta", "Iniciando recolhimento de " .. total .. " " .. nomeItem .. "(s).", 3)
 
@@ -322,13 +309,14 @@ local function executarColetaMateriais(nomeItem)
     end
     
     hrp.CFrame = posOriginal
-    logarAcao("Coleta Encerrada", "Operação concluída. Coletados com êxito: " .. contadorReal .. " de " .. total, 3)
+    logarAcao("Coleta Encerrada", "Operação concluída. Coletados: " .. contadorReal .. " de " .. total, 3)
     pcall(atualizarESP)
 end
 
 -- =============================================================================
--- EXECUTOR DE VENDAS COM VELOCIDADE AJUSTÁVEL
+-- EXECUTOR DE VENDAS COMPLETO COM CORREÇÃO DE RESÍDUOS
 -- =============================================================================
+
 local function encontrarReciclador()
     for _, obj in ipairs(workspace:GetChildren()) do
         if obj:FindFirstChild("Recycle item") then
@@ -355,12 +343,12 @@ local function executarVendaDeMinerios(botaoVender)
     local totalVenda = #itensValidos
     if totalVenda == 0 then return end
 
-    logarAcao("Balcão de Venda", "Processando lote de " .. totalVenda .. " minérios na esteira...", 3)
+    logarAcao("Balcão de Venda", "Processando lote de " .. totalVenda .. " minérios...", 3)
 
     for idx, item in ipairs(itensValidos) do
         if item and item.Parent == mochila then
             item.Parent = char 
-            task.wait(VelocidadeVenda) -- Ajustado com base no slider do usuário
+            task.wait(VelocidadeVenda)
             interagirComObjeto(botaoVender)
             task.wait(VelocidadeVenda)
         end
@@ -368,8 +356,186 @@ local function executarVendaDeMinerios(botaoVender)
 end
 
 -- =============================================================================
--- GERENCIADOR EXTRA DE MONSTROS
+-- CATEGORIA: UTILIDADES GERAIS
 -- =============================================================================
+
+local FullbrightAtivo = false
+TabGeral:CreateButton({
+    Name = "Alternar Fullbright (Remover Sombras e Névoa)",
+    Callback = function()
+        FullbrightAtivo = not FullbrightAtivo
+        if FullbrightAtivo then
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.GlobalShadows = false
+        else
+            Lighting.Brightness = 1
+            Lighting.ClockTime = 12
+            Lighting.GlobalShadows = true
+        end
+    end
+})
+
+TabGeral:CreateButton({
+    Name = "Interagir com as Portas (Teleporta e Aciona Sequencialmente)",
+    Callback = function()
+        local hrp = getHRP()
+        local posOriginal = hrp.CFrame
+        local executadas = 0
+
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "ButtonDoor" then
+                local button = obj:FindFirstChild("Button")
+                if button and button:IsA("BasePart") then
+                    hrp.CFrame = button.CFrame
+                    task.wait(0.3)
+                    interagirComObjeto(button)
+                    executadas = executadas + 1
+                end
+            end
+        end
+        hrp.CFrame = posOriginal
+        logarAcao("Portas Sincronizadas", "Varredura encerrada.", 3)
+    end
+})
+
+-- =============================================================================
+-- CATEGORIA: COLETA AUTOMÁTICA
+-- =============================================================================
+
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
+
+-- =============================================================================
+-- CATEGORIA: VENDA AUTOMATIZADA
+-- =============================================================================
+
+TabVenda:CreateSlider({
+    Name = "Velocidade de Venda (Segundos por Item)",
+    Min = 0.1,
+    Max = 1.0,
+    CurrentValue = 0.35,
+    Flag = "SliderVelocidadeVenda",
+    Callback = function(Value)
+        VelocidadeVenda = Value
+    end
+})
+
+TabVenda:CreateButton({
+    Name = "Vender Itens Filtrados (Apenas Gold, Diamond, Copper)",
+    Callback = function()
+        local hrp = getHRP()
+        local char = LocalPlayer.Character
+        local mochila = LocalPlayer:FindFirstChild("Backpack")
+        if not char or not mochila then return end
+
+        local reciclador, botaoVender = encontrarReciclador()
+        if not botaoVender then return logarAcao("Erro de Venda", "Balcão não encontrado.") end
+
+        local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
+        if parteAlvo then
+            hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 2, 0)
+            task.wait(0.5)
+        end
+
+        executarVendaDeMinerios(botaoVender)
+
+        task.wait(0.5)
+        local ferramentasRestantes = mochila:GetChildren()
+        local itemEsquecido = char:FindFirstChildOfClass("Tool")
+
+        if itemEsquecido and mineriosPermitidos[string.lower(itemEsquecido.Name)] then
+            interagirComObjeto(botaoVender)
+            task.wait(0.4)
+        end
+
+        for _, item in ipairs(ferramentasRestantes) do
+            if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
+                item.Parent = char
+                task.wait(0.2)
+                interagirComObjeto(botaoVender)
+                task.wait(0.4)
+            end
+        end
+
+        logarAcao("Faturamento Finalizado", "Mochila verificada e limpa!")
+    end
+})
+
+-- =============================================================================
+-- CATEGORIA: VISUAL & RASTREAMENTO
+-- =============================================================================
+
+local ToggleESP = TabVisual:CreateToggle({
+    Name = "Ver Materiais (Auto-Recalcular Sem Itens Fantasmas)",
+    CurrentValue = false,
+    Flag = "ToggleESPCompletoNunes",
+    Callback = function(Value)
+        _G.ESPAtivo = Value
+        if _G.ESPAtivo then
+            atualizarESP()
+        else
+            limparESP()
+        end
+    end
+})
+
+TabVisual:CreateButton({
+    Name = "Forçar Recalcular Mapa (Manual)",
+    Callback = function()
+        if _G.ESPAtivo then
+            atualizarESP()
+        end
+    end
+})
+
+TabVisual:CreateToggle({
+    Name = "Loop Alteração de Cores do Avatar (Sem Logs)",
+    CurrentValue = false,
+    Flag = "ToggleColorirNunes",
+    Callback = function(Value)
+        _G.LoopColorirAtivo = Value
+        if _G.LoopColorirAtivo then
+            task.spawn(function()
+                while _G.LoopColorirAtivo do
+                    local botoesColorir = {}
+                    for _, obj in ipairs(workspace:GetChildren()) do
+                        if string.lower(obj.Name) == "colorir" then
+                            table.insert(botoesColorir, obj)
+                        end
+                    end
+
+                    for _, botao in ipairs(botoesColorir) do
+                        if not _G.LoopColorirAtivo then break end
+                        interagirComObjeto(botao)
+                        task.wait(0.3)
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+})
+
+local TogglePortoes = TabVisual:CreateToggle({
+    Name = "ESP Portões Absoluto (Detecta Todos os Modelos)",
+    CurrentValue = false,
+    Flag = "ToggleESPPortoesNunes",
+    Callback = function(Value)
+        _G.ESPPortoesAtivo = Value
+        if _G.ESPPortoesAtivo then
+            atualizarESPPortoes()
+        else
+            limparESPPortoes()
+        end
+    end
+})
+
+-- =============================================================================
+-- CATEGORIA: TELEPORTES & MONSTROS
+-- =============================================================================
+
 local function obterInstanciaMonstro(nome)
     local monstrosDiretos = {
         Dus = workspace:FindFirstChild("DusMonster") and workspace.DusMonster:FindFirstChild("Dus"),
@@ -381,6 +547,18 @@ local function obterInstanciaMonstro(nome)
     local pastaSandman = workspace:FindFirstChild("Sandman/Ashy")
     if pastaSandman then return pastaSandman:FindFirstChild(nome) end
     return nil
+end
+
+local function teleportarParaMonstro(nomeMonstro)
+    local hrp = getHRP()
+    if not hrp then return end
+    local monstro = obterInstanciaMonstro(nomeMonstro)
+    if monstro then
+        local parteAlvo = monstro:IsA("BasePart") and monstro or monstro:FindFirstChildWhichIsA("BasePart", true)
+        if parteAlvo then
+            hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 4, 0)
+        end
+    end
 end
 
 local function atualizarESPMonstros()
@@ -405,6 +583,20 @@ local function atualizarESPMonstros()
     end
 end
 
+local ToggleMonstros = TabMonstros:CreateToggle({
+    Name = "ESP Monstros Completo",
+    CurrentValue = false,
+    Flag = "ToggleESPMonstros",
+    Callback = function(Value)
+        _G.ESPMonstrosAtivo = Value
+        if _G.ESPMonstrosAtivo then 
+            atualizarESPMonstros() 
+        else 
+            for _, esp in ipairs(ArmazenamentoESPMonstros) do if esp then esp:Destroy() end end 
+        end
+    end
+})
+
 task.spawn(function()
     while task.wait(2) do
         if not _G.NunesUIScriptExecutado then break end
@@ -412,116 +604,31 @@ task.spawn(function()
     end
 end)
 
--- =============================================================================
--- CATEGORIA: UTILIDADES GERAIS
--- =============================================================================
-local FullbrightAtivo = false
-TabGeral:CreateButton({
-    Name = "Alternar Fullbright (Remover Sombras e Névoa)",
-    Callback = function()
-        FullbrightAtivo = not FullbrightAtivo
-        if FullbrightAtivo then
-            Lighting.Brightness = 2
-            Lighting.ClockTime = 14
-            Lighting.GlobalShadows = false
-        else
-            Lighting.Brightness = 1
-            Lighting.ClockTime = 12
-            Lighting.GlobalShadows = true
-        end
-    end
-})
-
--- =============================================================================
--- CATEGORIA: COLETA AUTOMÁTICA
--- =============================================================================
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
-
--- =============================================================================
--- CATEGORIA: VENDA AUTOMATIZADA
--- =============================================================================
-TabVenda:CreateSlider({
-    Name = "Velocidade de Venda (Segundos por Item)",
-    Min = 0.1,
-    Max = 1.0,
-    CurrentValue = 0.35,
-    Flag = "SliderVelocidadeVenda",
-    Callback = function(Value)
-        VelocidadeVenda = Value
-    end
-})
-
-TabVenda:CreateButton({
-    Name = "Vender Itens Filtrados",
+TabMonstros:CreateButton({
+    Name = "Teleportar para o SpawnLocation",
     Callback = function()
         local hrp = getHRP()
-        local char = LocalPlayer.Character
-        local mochila = LocalPlayer:FindFirstChild("Backpack")
-        if not char or not mochila then return end
-
-        local reciclador, botaoVender = encontrarReciclador()
-        if not botaoVender then return logarAcao("Erro de Venda", "Balcão não encontrado.") end
-
-        local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
-        if parteAlvo then
-            hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 2, 0)
-            task.wait(0.5)
-        end
-
-        executarVendaDeMinerios(botaoVender)
-        logarAcao("Venda", "Limpeza e faturamento concluídos.")
-    end
-})
-
--- =============================================================================
--- CATEGORIA: VISUAL & RASTREAMENTO
--- =============================================================================
-local ToggleESP = TabVisual:CreateToggle({
-    Name = "Ver Materiais (Auto-Recalcular Sem Itens Fantasmas)",
-    CurrentValue = false,
-    Flag = "ToggleESPCompletoNunes",
-    Callback = function(Value)
-        _G.ESPAtivo = Value
-        if _G.ESPAtivo then
-            atualizarESP()
-        else
-            limparESP()
+        local spawnLocation = workspace:FindFirstChild("SpawnLocation")
+        if hrp and spawnLocation and spawnLocation:IsA("BasePart") then
+            hrp.CFrame = spawnLocation.CFrame + Vector3.new(0, 3, 0)
         end
     end
 })
 
-local TogglePortoes = TabVisual:CreateToggle({
-    Name = "ESP Portões Absoluto (Detecta Todos os Modelos)",
-    CurrentValue = false,
-    Flag = "ToggleESPPortoesNunes",
-    Callback = function(Value)
-        _G.ESPPortoesAtivo = Value
-        if _G.ESPPortoesAtivo then
-            atualizarESPPortoes()
-        else
-            limparESPPortoes()
-        end
-    end
-})
+TabMonstros:CreateLabel("--- Teleporte Direto para Monstros ---")
+TabMonstros:CreateButton({ Name = "Teleportar para Dus", Callback = function() teleportarParaMonstro("Dus") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Gus", Callback = function() teleportarParaMonstro("Gus") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Kus", Callback = function() teleportarParaMonstro("Kus") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Lost", Callback = function() teleportarParaMonstro("Lost") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Ashy", Callback = function() teleportarParaMonstro("Ashy") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Lurker", Callback = function() teleportarParaMonstro("Lurker") end })
+TabMonstros:CreateButton({ Name = "Teleportar para SandMan", Callback = function() teleportarParaMonstro("SandMan") end })
+TabMonstros:CreateButton({ Name = "Teleportar para Scar", Callback = function() teleportarParaMonstro("Scar") end })
 
 -- =============================================================================
--- CATEGORIA: TELEPORTES & MONSTROS
+-- BOTÃO DE REDEFINIR CONFIGURAÇÕES (VOLTA TUDO AO PADRÃO ORIGINAL)
 -- =============================================================================
-local ToggleMonstros = TabVisual:CreateToggle({
-    Name = "ESP Monstros Completo",
-    CurrentValue = false,
-    Flag = "ToggleESPMonstros",
-    Callback = function(Value)
-        _G.ESPMonstrosAtivo = Value
-        if _G.ESPMonstrosAtivo then atualizarESPMonstros() else for _, esp in ipairs(ArmazenamentoESPMonstros) do if esp then esp:Destroy() end end end
-    end
-})
 
--- =============================================================================
--- BOTÃO ABSOLUTO DE REDEFINIR CONFIGURAÇÕES (VOLTA TUDO AO PADRÃO ORIGINAL)
--- =============================================================================
 TabGeral:CreateButton({
     Name = "⚠️ REDEFINIR CONFIGURAÇÕES (RESET GERAL)",
     Callback = function()
@@ -530,22 +637,19 @@ TabGeral:CreateButton({
         _G.ESPMonstrosAtivo = false
         _G.LoopColorirAtivo = false
         
-        -- Atualiza os elementos da UI visualmente
         ToggleESP:Set(false)
         TogglePortoes:Set(false)
+        ToggleMonstros:Set(false)
         
-        -- Limpa elementos criados no mapa
         limparESP()
         limparESPPortoes()
         for _, esp in ipairs(ArmazenamentoESPMonstros) do if esp then esp:Destroy() end end
         
-        logarAcao("Painel Resetado", "Todas as funções foram desligadas e redefinidas com sucesso!", 4)
+        logarAcao("Painel Resetado", "Todas as funções foram desativadas e redefinidas!", 4)
     end
 })
 
--- =============================================================================
--- SINCRO EM TEMPO REAL DE ADIÇÃO/REMOÇÃO
--- =============================================================================
+-- Sincronização em tempo real de adição/remoção
 workspace.DescendantAdded:Connect(function(descendente)
     if _G.ESPAtivo and descendente.Parent and descendente.Parent.Name == "Scraps" then
         pcall(atualizarESP)
