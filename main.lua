@@ -1,10 +1,12 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
 local Window = Rayfield:CreateWindow({
-    Name = "Script - Lethal Ape",
-    LoadingTitle = "Lethal Ape",
-    LoadingSubtitle = "Lethal Ape Script by WnnaCry13",
-    ConfigurationSaving = {
-        Enabled = false
-    }
+    Name = "Script - Lethal Ape",
+    LoadingTitle = "Lethal Ape",
+    LoadingSubtitle = "Lethal Ape Script by WnnaCry13",
+    ConfigurationSaving = {
+        Enabled = false
+    }
 })
 
 -- Categorias de Interface Totalmente Autoexplicativas
