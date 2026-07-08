@@ -163,7 +163,7 @@ local function atualizarESP()
     if not scraps then return end
 
     for i = #ArmazenamentoESP, 1, -1 do
-        local h = ArmazenamentoESP, i]
+        local h = ArmazenamentoESP[i]
         if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
             if h then h:Destroy() end
             table.remove(ArmazenamentoESP, i)
@@ -384,7 +384,7 @@ local function executarColetaMateriais(nomeItem)
 end
 
 -- =============================================================================
--- LOGICA INTERNA DA VENDA (DO JEITO QUE DEVE FUNCIONAR)
+-- LOGICA INTERNA DA VENDA
 -- =============================================================================
 
 local function rotinaVendaUnica()
@@ -485,7 +485,7 @@ TabGeral:CreateButton({
             end
         end
         hrp.CFrame = posOriginal
-        logarAcao("Portas Sincronizadas", "Varredura de mecanismos de portas encerrada.", 3)
+        logarAcao("Portas Sincronizadas", "Varredura de mechanisms de portas encerrada.", 3)
     end
 })
 
@@ -494,11 +494,11 @@ TabGeral:CreateButton({
 -- =============================================================================
 
 TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMaterials("Diamond") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMaterials("Copper") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
 
 -- =============================================================================
--- CATEGORIA: VENDA AUTOMATIZADA (RESTAURADA E COMPLEMENTADA)
+-- CATEGORIA: VENDA AUTOMATIZADA
 -- =============================================================================
 
 TabVenda:CreateSlider({
