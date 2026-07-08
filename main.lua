@@ -630,8 +630,6 @@ TabMonstros:CreateButton({
     end
 })
 
-TabMonstros:CreateLabel("--- Teleporte Direto para Monstros ---")
-
 TabMonstros:CreateButton({ Name = "Teleportar para Dus", Callback = function() teleportarParaMonstro("Dus") end })
 TabMonstros:CreateButton({ Name = "Teleportar para Gus", Callback = function() teleportarParaMonstro("Gus") end })
 TabMonstros:CreateButton({ Name = "Teleportar para Kus", Callback = function() teleportarParaMonstro("Kus") end })
@@ -640,6 +638,45 @@ TabMonstros:CreateButton({ Name = "Teleportar para Ashy", Callback = function() 
 TabMonstros:CreateButton({ Name = "Teleportar para Lurker", Callback = function() teleportarParaMonstro("Lurker") end })
 TabMonstros:CreateButton({ Name = "Teleportar para SandMan", Callback = function() teleportarParaMonstro("SandMan") end })
 TabMonstros:CreateButton({ Name = "Teleportar para Scar", Callback = function() teleportarParaMonstro("Scar") end })
+
+local AntijumpscareAtivo = false
+TabMonstros:CreateToggle({
+    Name = "Desativar Monster Scream (Todos os Monstros)",
+    CurrentValue = false,
+    Flag = "ToggleAntiScreamNunes",
+    Callback = function(Value)
+        AntijumpscareAtivo = Value
+        if AntijumpscareAtivo then
+            logarAcao("Proteção", "Anti-Scream ativado. Bloqueando ruídos e telas.")
+            
+            -- Loop em segundo plano para deletar instantaneamente quando a UI aparecer
+            task.spawn(function()
+                local ruidos = {
+                    "Dus Noise", "Gus Noise", "Kus Noise", "Lost Noise", 
+                    "Ashy Noise", "Lurker Noise", "SandMan Noise", "Scar Noise"
+                }
+                
+                while AntijumpscareAtivo do
+                    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+                    if playerGui then
+                        for _, nomeRuido in ipairs(ruidos) do
+                            local pastaRuido = playerGui:FindFirstChild(nomeRuido)
+                            if pastaRuido then
+                                local screen = pastaRuido:FindFirstChild("screen")
+                                if screen then
+                                    screen:Destroy()
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1) -- Checagem rápida contínua
+                end
+            end)
+        else
+            logarAcao("Proteção", "Anti-Scream desativado.")
+        end
+    end
+})
 
 -- =============================================================================
 -- OTIMIZADORES DE EVENTO EM TEMPO REAL
