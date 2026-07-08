@@ -6,6 +6,7 @@ if _G.NunesUIScriptExecutado then
     _G.ESPPortoesAtivo = false
     _G.ESPMonstrosAtivo = false
     _G.LoopColorirAtivo = false
+    _G.AutoVendaAtiva = false
     task.wait(0.3)
 end
 
@@ -14,13 +15,14 @@ _G.ESPAtivo = false
 _G.ESPPortoesAtivo = false
 _G.ESPMonstrosAtivo = false
 _G.LoopColorirAtivo = false
+_G.AutoVendaAtiva = false
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "NunesUI - Painel de Controle Completo",
-    LoadingTitle = "NunesUI Admin v6.5 - Definitive Edition",
-    LoadingSubtitle = "Sistema Completo Restaurado & Sem Bugs",
+    LoadingTitle = "NunesUI Admin v7.0 - Final Absolute",
+    LoadingSubtitle = "Todas as Funções Restauradas e Prontas",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -355,6 +357,56 @@ local function executarVendaDeMinerios(botaoVender)
     end
 end
 
+local function rotinaCompletaVenda()
+    local hrp = getHRP()
+    local char = LocalPlayer.Character
+    local mochila = LocalPlayer:FindFirstChild("Backpack")
+    if not char or not mochila then return end
+
+    local reciclador, botaoVender = encontrarReciclador()
+    if not botaoVender then return logarAcao("Erro de Venda", "Balcão não encontrado.") end
+
+    local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
+    if parteAlvo then
+        hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 2, 0)
+        task.wait(0.5)
+    end
+
+    executarVendaDeMinerios(botaoVender)
+
+    task.wait(0.5)
+    local ferramentasRestantes = mochila:GetChildren()
+    local itemEsquecido = char:FindFirstChildOfClass("Tool")
+
+    if itemEsquecido and mineriosPermitidos[string.lower(itemEsquecido.Name)] then
+        interagirComObjeto(botaoVender)
+        task.wait(0.4)
+    end
+
+    for _, item in ipairs(ferramentasRestantes) do
+        if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
+            item.Parent = char
+            task.wait(0.2)
+            interagirComObjeto(botaoVender)
+            task.wait(0.4)
+        end
+    end
+
+    logarAcao("Faturamento Finalizado", "Mochila verificada e limpa!")
+end
+
+-- Loop em background para a Venda Automática quando ativada
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if not _G.NunesUIScriptExecutado then break end
+        if _G.AutoVendaAtiva then
+            pcall(rotinaCompletaVenda)
+            task.wait(5) -- Pausa antes de checar novamente se há itens para vender
+        end
+    end
+end)
+
 -- =============================================================================
 -- CATEGORIA: UTILIDADES GERAIS
 -- =============================================================================
@@ -403,9 +455,9 @@ TabGeral:CreateButton({
 -- CATEGORIA: COLETA AUTOMÁTICA
 -- =============================================================================
 
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMateriais("Gold") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMateriais("Diamond") end })
-TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMateriais("Copper") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Ouros (Gold)", Callback = function() executarColetaMaterials("Gold") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Diamantes (Diamond)", Callback = function() executarColetaMaterials("Diamond") end })
+TabColeta:CreateButton({ Name = "Teleportar e Coletar Todos os Cobres (Copper)", Callback = function() executarColetaMaterials("Copper") end })
 
 -- =============================================================================
 -- CATEGORIA: VENDA AUTOMATIZADA
@@ -422,44 +474,24 @@ TabVenda:CreateSlider({
     end
 })
 
+local ToggleAutoVenda = TabVenda:CreateToggle({
+    Name = "Iniciar Venda Automática (Loop contínuo)",
+    CurrentValue = false,
+    Flag = "ToggleAutoVendaNunes",
+    Callback = function(Value)
+        _G.AutoVendaAtiva = Value
+        if _G.AutoVendaAtiva then
+            logarAcao("Auto Venda", "Loop de venda automática ativado.")
+        else
+            logarAcao("Auto Venda", "Loop de venda automática desligado.")
+        end
+    end
+})
+
 TabVenda:CreateButton({
-    Name = "Vender Itens Filtrados (Apenas Gold, Diamond, Copper)",
+    Name = "Forçar Venda Manual de Itens Filtrados Agora",
     Callback = function()
-        local hrp = getHRP()
-        local char = LocalPlayer.Character
-        local mochila = LocalPlayer:FindFirstChild("Backpack")
-        if not char or not mochila then return end
-
-        local reciclador, botaoVender = encontrarReciclador()
-        if not botaoVender then return logarAcao("Erro de Venda", "Balcão não encontrado.") end
-
-        local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
-        if parteAlvo then
-            hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 2, 0)
-            task.wait(0.5)
-        end
-
-        executarVendaDeMinerios(botaoVender)
-
-        task.wait(0.5)
-        local ferramentasRestantes = mochila:GetChildren()
-        local itemEsquecido = char:FindFirstChildOfClass("Tool")
-
-        if itemEsquecido and mineriosPermitidos[string.lower(itemEsquecido.Name)] then
-            interagirComObjeto(botaoVender)
-            task.wait(0.4)
-        end
-
-        for _, item in ipairs(ferramentasRestantes) do
-            if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
-                item.Parent = char
-                task.wait(0.2)
-                interagirComObjeto(botaoVender)
-                task.wait(0.4)
-            end
-        end
-
-        logarAcao("Faturamento Finalizado", "Mochila verificada e limpa!")
+        rotinaCompletaVenda()
     end
 })
 
@@ -636,10 +668,12 @@ TabGeral:CreateButton({
         _G.ESPPortoesAtivo = false
         _G.ESPMonstrosAtivo = false
         _G.LoopColorirAtivo = false
+        _G.AutoVendaAtiva = false
         
         ToggleESP:Set(false)
         TogglePortoes:Set(false)
         ToggleMonstros:Set(false)
+        ToggleAutoVenda:Set(false)
         
         limparESP()
         limparESPPortoes()
