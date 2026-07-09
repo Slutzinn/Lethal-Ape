@@ -17,7 +17,7 @@ local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
 local TabVisual = Window:CreateTab("ESP (Visuais)", 4483362458)
 local TabPortoes = Window:CreateTab("Portões", 4483362458)
-local TabElevador = Window:CreateTab("Elevador", 4483362458) -- NOVA ABA
+local TabElevador = Window:CreateTab("Elevador", 4483362458)
 local TabGeral = Window:CreateTab("Geral", 4483362458)
 local TabDancas = Window:CreateTab("Emotes", 4483362458)
 
@@ -40,14 +40,14 @@ local ESPAtivo = false
 local ESPMonstrosAtivo = false
 local ESPPortoesAtivo = false
 local ESPJogadoresAtivo = false
-local ESPElevadorAtivo = false -- NOVO ESTADO
+local ESPElevadorAtivo = false
 local AntijumpscareAtivo = false
 
 local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
-local ArmazenamentoESPElevador = {} -- NOVO ARMAZENAMENTO
+local ArmazenamentoESPElevador = {}
 
 -- Filtro Rígido de Validação de Itens da Mochila
 local mineriosPermitidos = { 
@@ -173,8 +173,8 @@ local function executarColetaMateriais(nomeItem)
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
-                    tentativas = tentativas + 1
-                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentativas > 15
+                    tentativas = tentatives + 1
+                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentatives > 15
             end
         end
     end
@@ -215,12 +215,12 @@ local function acionarFluxoVendas()
             item.Parent = char
             task.wait(0.02)
           
-            local tentativas = 0
+            local tentatives = 0
             repeat
                 interagirComObjeto(botaoVender)
                 task.wait(0.04)
                 tentativas = tentativas + 1
-            until item.Parent ~= char or not item or tentativas > 10
+            until item.Parent ~= char or not item or tentatives > 10
         end
     end
     
@@ -385,7 +385,7 @@ local function atualizarESPPortoes()
     end
 end
 
--- NOVO: LOGICA DO ESP DO ELEVADOR
+-- FIX: LOGICA DO ESP DO ELEVADOR REVISADA
 local function limparESPElevador()
     for _, esp in ipairs(ArmazenamentoESPElevador) do if esp then pcall(function() esp:Destroy() end) end end
     ArmazenamentoESPElevador = {}
@@ -395,12 +395,13 @@ local function atualizarESPElevador()
     limparESPElevador()
     if not ESPElevadorAtivo then return end
     pcall(function()
-        local elevador = workspace: somePathCheck or workspace:FindFirstChild("Mapa") and workspace.Mapa:FindFirstChild("Elevador")
+        local mapa = workspace:FindFirstChild("Mapa")
+        local elevador = mapa and mapa:FindFirstChild("Elevador")
         if elevador and elevador:FindFirstChild("BaseDoElevador") then
             local alvo = elevador.BaseDoElevador
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_ElevadorESP"
-            highlight.FillColor = Color3.fromRGB(230, 0, 255) -- Roxo/Neon
+            highlight.FillColor = Color3.fromRGB(230, 0, 255)
             highlight.FillTransparency = 0.4
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Adornee = alvo
