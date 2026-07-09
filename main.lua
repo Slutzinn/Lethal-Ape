@@ -17,6 +17,7 @@ local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
 local TabVisual = Window:CreateTab("ESP (Visuais)", 4483362458)
 local TabPortoes = Window:CreateTab("Portões", 4483362458)
+local TabElevador = Window:CreateTab("Elevador", 4483362458) -- NOVA ABA
 local TabGeral = Window:CreateTab("Geral", 4483362458)
 local TabDancas = Window:CreateTab("Emotes", 4483362458)
 
@@ -39,12 +40,14 @@ local ESPAtivo = false
 local ESPMonstrosAtivo = false
 local ESPPortoesAtivo = false
 local ESPJogadoresAtivo = false
+local ESPElevadorAtivo = false -- NOVO ESTADO
 local AntijumpscareAtivo = false
 
 local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
+local ArmazenamentoESPElevador = {} -- NOVO ARMAZENAMENTO
 
 -- Filtro Rígido de Validação de Itens da Mochila
 local mineriosPermitidos = { 
@@ -166,7 +169,7 @@ local function executarColetaMateriais(nomeItem)
                 hrp.CFrame = parte.CFrame + Vector3.new(0, 1.5, 0)
                 task.wait(0.04)
 
-                local tentativas = 0
+                local tentatives = 0
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
@@ -382,12 +385,38 @@ local function atualizarESPPortoes()
     end
 end
 
+-- NOVO: LOGICA DO ESP DO ELEVADOR
+local function limparESPElevador()
+    for _, esp in ipairs(ArmazenamentoESPElevador) do if esp then pcall(function() esp:Destroy() end) end end
+    ArmazenamentoESPElevador = {}
+end
+
+local function atualizarESPElevador()
+    limparESPElevador()
+    if not ESPElevadorAtivo then return end
+    pcall(function()
+        local elevador = workspace: somePathCheck or workspace:FindFirstChild("Mapa") and workspace.Mapa:FindFirstChild("Elevador")
+        if elevador and elevador:FindFirstChild("BaseDoElevador") then
+            local alvo = elevador.BaseDoElevador
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "Nunes_ElevadorESP"
+            highlight.FillColor = Color3.fromRGB(230, 0, 255) -- Roxo/Neon
+            highlight.FillTransparency = 0.4
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Adornee = alvo
+            highlight.Parent = alvo
+            table.insert(ArmazenamentoESPElevador, highlight)
+        end
+    end)
+end
+
 task.spawn(function()
     while task.wait(0.4) do 
         if ESPJogadoresAtivo then pcall(atualizarESPJogadores) end
         if ESPAtivo then pcall(atualizarESP) end
         if ESPMonstrosAtivo then pcall(atualizarESPMonstros) end
         if ESPPortoesAtivo then pcall(atualizarESPPortoes) end
+        if ESPElevadorAtivo then pcall(atualizarESPElevador) end
     end
 end)
 
@@ -461,6 +490,12 @@ TabVisual:CreateToggle({
     Flag = "ToggleESPMonstrosNunes",
     Callback = function(Value) ESPMonstrosAtivo = Value; if Value then atualizarESPMonstros() else limparESPMonstros() end end
 })
+TabVisual:CreateToggle({
+    Name = "ESP do Elevador",
+    CurrentValue = false,
+    Flag = "ToggleESPElevadorNunes",
+    Callback = function(Value) ESPElevadorAtivo = Value; if Value then atualizarESPElevador() else limparESPElevador() end end
+})
 
 -- ABA: CONTROLE DE PORTÕES
 TabPortoes:CreateSection("Portões")
@@ -479,10 +514,32 @@ for i = 1, 4 do
     TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
+-- NOVA ABA: ELEVADOR
+TabElevador:CreateSection("Controle Remoto do Elevador")
+TabElevador:CreateButton({
+    Name = "Chamar Elevador para Cima",
+    Callback = function()
+        pcall(function()
+            local botaoCima = workspace.Mapa.Elevador.DButton
+            interagirComObjeto(botaoCima)
+            logarAcao("Elevador", "Comando enviado para subir o elevador!")
+        end)
+    end
+})
+TabElevador:CreateButton({
+    Name = "Chamar Elevador para Baixo",
+    Callback = function()
+        pcall(function()
+            local botaoBaixo = workspace.Mapa.Elevador.BaseDoElevador
+            interagirComObjeto(botaoBaixo)
+            logarAcao("Elevador", "Comando enviado para descer o elevador!")
+        end)
+    end
+})
+
 -- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Visualização e Ambiente")
 
--- SISTEMA CORRIGIDO DE DESBLOQUEIO DE CÂMERA (SAIR DA 1ª PESSOA TRAVADA)
 TabGeral:CreateToggle({
     Name = "Desbloquear Câmera (Zoom Livre)",
     CurrentValue = false,
@@ -490,20 +547,17 @@ TabGeral:CreateToggle({
     Callback = function(Value) 
         TerceiraPessoaAtiva = Value 
         if TerceiraPessoaAtiva then
-            -- Força o modo clássico para desligar a Primeira Pessoa obrigatória do jogo
             LocalPlayer.CameraMode = Enum.CameraMode.Classic
             LocalPlayer.CameraMaxZoomDistance = 100000
             LocalPlayer.CameraMinZoomDistance = 0.5
             Camera.CameraType = Enum.CameraType.Custom
             
-            -- Afasta a câmera imediatamente para tirá-la do rosto do personagem
             LocalPlayer.CameraMinZoomDistance = 15
             task.wait(0.05)
             LocalPlayer.CameraMinZoomDistance = 0.5
             
             logarAcao("Câmera", "Câmera desbloqueada! Use a rolagem do mouse para controlar o zoom.")
         else
-            -- Retorna ao padrão original do jogo
             LocalPlayer.CameraMaxZoomDistance = 128
             LocalPlayer.CameraMinZoomDistance = 0.5
             Camera.CameraType = Enum.CameraType.Custom
@@ -511,7 +565,6 @@ TabGeral:CreateToggle({
     end
 })
 
--- Loop auxiliar para garantir que o jogo não tente travar sua câmera de volta enquanto o botão estiver ligado
 task.spawn(function()
     while true do
         task.wait(0.2)
