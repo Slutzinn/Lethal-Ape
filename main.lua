@@ -17,7 +17,7 @@ local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
 local TabVisual = Window:CreateTab("ESP (Visuais)", 4483362458)
 local TabPortoes = Window:CreateTab("Portões", 4483362458)
-local TabElevador = Window:CreateTab("Elevador", 4483362458)
+local TabElevador = Window:CreateTab("Elevador", 4483362458) -- NOVA CATEGORIA
 local TabGeral = Window:CreateTab("Geral", 4483362458)
 local TabDancas = Window:CreateTab("Emotes", 4483362458)
 
@@ -40,14 +40,14 @@ local ESPAtivo = false
 local ESPMonstrosAtivo = false
 local ESPPortoesAtivo = false
 local ESPJogadoresAtivo = false
-local ESPElevadorAtivo = false
+local ESPElevadorAtivo = false -- NOVO ESTADO
 local AntijumpscareAtivo = false
 
 local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
-local ArmazenamentoESPElevador = {}
+local ArmazenamentoESPElevador = {} -- NOVO ARMAZENAMENTO
 
 -- Filtro Rígido de Validação de Itens da Mochila
 local mineriosPermitidos = { 
@@ -130,6 +130,11 @@ local function encontrarReciclador()
     return nil, nil
 end
 
+-- Localiza o modelo do Elevador dinamicamente no workspace
+local function encontrarElevador()
+    return workspace:FindFirstChild("Elevator") or workspace:FindFirstChild("elevator") or workspace:FindFirstChild("Elevador")
+end
+
 local function itemEstaAtivoNoMundo(objeto)
     if not objeto or not objeto.Parent then return false end
     local parte = objeto:IsA("BasePart") and objeto or objeto:FindFirstChildWhichIsA("BasePart", true)
@@ -169,12 +174,12 @@ local function executarColetaMateriais(nomeItem)
                 hrp.CFrame = parte.CFrame + Vector3.new(0, 1.5, 0)
                 task.wait(0.04)
 
-                local tentatives = 0
+                local tentativas = 0
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
-                    tentativas = tentatives + 1
-                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentatives > 15
+                    tentativas = tentativas + 1
+                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentativas > 15
             end
         end
     end
@@ -214,13 +219,13 @@ local function acionarFluxoVendas()
         if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
             item.Parent = char
             task.wait(0.02)
-          
-            local tentatives = 0
+         
+            local tentativas = 0
             repeat
                 interagirComObjeto(botaoVender)
                 task.wait(0.04)
                 tentativas = tentativas + 1
-            until item.Parent ~= char or not item or tentatives > 10
+            until item.Parent ~= char or not item or tentativas > 10
         end
     end
     
@@ -385,7 +390,7 @@ local function atualizarESPPortoes()
     end
 end
 
--- FIX: LOGICA DO ESP DO ELEVADOR REVISADA
+-- SISTEMA ATUALIZADO DE RASTREAMENTO DO ELEVADOR
 local function limparESPElevador()
     for _, esp in ipairs(ArmazenamentoESPElevador) do if esp then pcall(function() esp:Destroy() end) end end
     ArmazenamentoESPElevador = {}
@@ -394,21 +399,17 @@ end
 local function atualizarESPElevador()
     limparESPElevador()
     if not ESPElevadorAtivo then return end
-    pcall(function()
-        local mapa = workspace:FindFirstChild("Mapa")
-        local elevador = mapa and mapa:FindFirstChild("Elevador")
-        if elevador and elevador:FindFirstChild("BaseDoElevador") then
-            local alvo = elevador.BaseDoElevador
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "Nunes_ElevadorESP"
-            highlight.FillColor = Color3.fromRGB(230, 0, 255)
-            highlight.FillTransparency = 0.4
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Adornee = alvo
-            highlight.Parent = alvo
-            table.insert(ArmazenamentoESPElevador, highlight)
-        end
-    end)
+    local elevador = encontrarElevador()
+    if elevador then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Nunes_ElevadorESP"
+        highlight.FillColor = Color3.fromRGB(238, 130, 238) -- Violeta/Rosa bem visível
+        highlight.FillTransparency = 0.4
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Adornee = elevador
+        highlight.Parent = elevador
+        table.insert(ArmazenamentoESPElevador, highlight)
+    end
 end
 
 task.spawn(function()
@@ -417,7 +418,7 @@ task.spawn(function()
         if ESPAtivo then pcall(atualizarESP) end
         if ESPMonstrosAtivo then pcall(atualizarESPMonstros) end
         if ESPPortoesAtivo then pcall(atualizarESPPortoes) end
-        if ESPElevadorAtivo then pcall(atualizarESPElevador) end
+        if ESPElevadorAtivo then pcall(atualizarESPElevador) end -- LOOP ATIVO DO ELEVADOR
     end
 end)
 
@@ -515,32 +516,45 @@ for i = 1, 4 do
     TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
--- NOVA ABA: ELEVADOR
-TabElevador:CreateSection("Controle Remoto do Elevador")
+-- =============================================================================
+-- NOVA ABA: CONTROLE DO ELEVADOR
+-- =============================================================================
+TabElevador:CreateSection("Controle e Teleporte")
 TabElevador:CreateButton({
-    Name = "Chamar Elevador para Cima",
+    Name = "Teleportar para o Elevador",
     Callback = function()
-        pcall(function()
-            local botaoCima = workspace.Mapa.Elevador.DButton
-            interagirComObjeto(botaoCima)
-            logarAcao("Elevador", "Comando enviado para subir o elevador!")
-        end)
+        local elevador = encontrarElevador()
+        local hrp = getHRP()
+        if hrp and elevador then
+            local parteAlvo = elevador:IsA("BasePart") and elevador or elevador:FindFirstChildWhichIsA("BasePart", true)
+            if parteAlvo then
+                hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 3, 0)
+                logarAcao("Elevador", "Teleportado com sucesso!", 1.5)
+            else
+                logarAcao("Erro", "Parte principal do elevador não foi encontrada.", 2)
+            end
+        else
+            logarAcao("Aviso", "Elevador não carregado ou não encontrado no mapa.", 2.5)
+        end
     end
 })
 TabElevador:CreateButton({
-    Name = "Chamar Elevador para Baixo",
+    Name = "Chamar / Interagir com Elevador",
     Callback = function()
-        pcall(function()
-            local botaoBaixo = workspace.Mapa.Elevador.BaseDoElevador
-            interagirComObjeto(botaoBaixo)
-            logarAcao("Elevador", "Comando enviado para descer o elevador!")
-        end)
+        local elevador = encontrarElevador()
+        if elevador then
+            interagirComObjeto(elevador)
+            logarAcao("Elevador", "Comando de interação enviado!", 1.5)
+        else
+            logarAcao("Aviso", "Elevador não encontrado para interação.", 2.5)
+        end
     end
 })
 
 -- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Visualização e Ambiente")
 
+-- SISTEMA CORRIGIDO DE DESBLOQUEIO DE CÂMERA (SAIR DA 1ª PESSOA TRAVADA)
 TabGeral:CreateToggle({
     Name = "Desbloquear Câmera (Zoom Livre)",
     CurrentValue = false,
@@ -662,11 +676,13 @@ end
 workspace.DescendantAdded:Connect(function(desc)
     if ESPAtivo and desc.Parent and desc.Parent.Name == "Scraps" then pcall(atualizarESP) end
     if ESPPortoesAtivo and desc.Name == "Object_0" and desc.Parent and desc.Parent.Name == "ButtonDoor" then task.wait(0.2); pcall(atualizarESPPortoes) end
+    if ESPElevadorAtivo and (string.lower(desc.Name) == "elevator" or string.lower(desc.Name) == "elevador") then task.wait(0.2); pcall(atualizarESPElevador) end
 end)
 
 workspace.DescendantRemoving:Connect(function(desc)
     if ESPAtivo and desc.Parent and desc.Parent.Name == "Scraps" then pcall(atualizarESP) end
     if ESPPortoesAtivo and desc.Name == "Object_0" then pcall(atualizarESPPortoes) end
+    if ESPElevadorAtivo and (string.lower(desc.Name) == "elevator" or string.lower(desc.Name) == "elevador") then pcall(atualizarESPElevador) end
 end)
 
 Players.PlayerAdded:Connect(function() if ESPJogadoresAtivo then task.wait(1); pcall(atualizarESPJogadores) end end)
