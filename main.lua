@@ -24,15 +24,16 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- Estados Globais de Funcionamento
 local AutoFarmAtivo = false
 local ModoRapidoAtivo = true -- Forçado verdadeiro para garantir a velocidade ultra pretendida
-local CFlyAtivo = false
 local FullbrightAtivo = false
 local LoopColorirAtivo = false
+local TerceiraPessoaAtiva = false -- Estado da Terceira Pessoa
 
 local ESPAtivo = false
 local ESPMonstrosAtivo = false
@@ -44,6 +45,12 @@ local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
+
+-- Configurações da Terceira Pessoa
+local DistanciaCameraTP = 8
+local DeslocamentoCameraTP = Vector3.new(2, 1.5, 0) -- Visão sobre o ombro direito
+local AnguloX, AnguloY = 0, 0
+local SensibilidadeTP = 0.5
 
 -- Filtro Rígido de Validação de Itens da Mochila
 local mineriosPermitidos = { 
@@ -82,7 +89,7 @@ local function enviarChat(mensagem)
 end
 
 -- =============================================================================
--- SISTEMA DE HELICÓPTERO / FLY ANTI-VOID ESTABILIZADO
+-- SISTEMA DE VOO AUTOMÁTICO AUXILIAR (EVITA QUEDA NO VOID DURANTE O FARM)
 -- =============================================================================
 local flyVelocity, flyGyro
 
@@ -108,29 +115,45 @@ local function desativarFlyTemporario()
     if flyGyro then pcall(function() flyGyro:Destroy() end); flyGyro = nil end
 end
 
--- Loop de controle livre por botões (CFly Geral)
-RunService.Heartbeat:Connect(function()
-    if CFlyAtivo then
-        local hrp = getHRP()
-        local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hrp and humanoid then
-            if not flyVelocity or not flyGyro or flyVelocity.Parent ~= hrp then
-                ativarFlyTemporario(hrp)
-            end
-            local direcaoMove = humanoid.MoveDirection
-            local velocidadeVoo = 120
-            
-            flyVelocity.Velocity = direcaoMove * velocidadeVoo
-            if direcaoMove.Magnitude == 0 then
-                flyVelocity.Velocity = Vector3.new(0, 0, 0)
-            end
-            flyGyro.CFrame = Camera.CFrame
-        end
-    else
-        -- Só desativa se o Auto Farm também não estiver controlando o voo
-        if not AutoFarmAtivo and (flyVelocity or flyGyro) then
-            desativarFlyTemporario()
-        end
+-- =============================================================================
+-- LÓGICA DE ATUALIZAÇÃO DA TERCEIRA PESSOA (RENDER STEP)
+-- =============================================================================
+RunService:BindToRenderStep("CameraTerceiraPessoa", Enum.RenderPriority.Camera.Value + 1, function()
+    if not TerceiraPessoaAtiva then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
+
+    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    humanoid.AutoRotate = false
+
+    local DeltaMouse = UserInputService:GetMouseDelta()
+    AnguloX = AnguloX - (DeltaMouse.X * SensibilidadeTP)
+    AnguloY = math.clamp(AnguloY - (DeltaMouse.Y * SensibilidadeTP), -70, 70)
+
+    local RotacaoCFrame = CFrame.Angles(0, math.rad(AnguloX), 0) * CFrame.Angles(math.rad(AnguloY), 0, 0)
+    local PosicaoFoco = hrp.Position + RotacaoCFrame:VectorToWorldSpace(DeslocamentoCameraTP)
+    local PosicaoCamera = PosicaoFoco - (RotacaoCFrame.LookVector * DistanciaCameraTP)
+
+    -- Sistema Anti-Parede integrado
+    local ParametrosRaio = RaycastParams.new()
+    ParametrosRaio.FilterDescendantsInstances = {char}
+    ParametrosRaio.FilterType = Enum.RaycastFilterType.Exclude
+
+    local ResultadoRaio = workspace:Raycast(PosicaoFoco, (PosicaoCamera - PosicaoFoco), ParametrosRaio)
+    if ResultadoRaio then
+        PosicaoCamera = ResultadoRaio.Position + (ResultadoRaio.Normal * 0.5)
+    end
+
+    Camera.CameraType = Enum.CameraType.Scriptable
+    Camera.CFrame = CFrame.new(PosicaoCamera, PosicaoFoco)
+    
+    if humanoid.MoveDirection.Magnitude > 0 then
+        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(hrp.Position, hrp.Position + Vector3.new(RotacaoCFrame.LookVector.X, 0, RotacaoCFrame.LookVector.Z)), 0.2)
     end
 end)
 
@@ -164,9 +187,8 @@ local function itemEstaAtivoNoMundo(objeto)
 end
 
 -- =============================================================================
--- MECANISMO DE COLETAS COM PRECISÃO ULTRA-RÁPIDA (IMUNE A WI-FI INSTÁVEL)
+-- MECANISMO DE COLETAS COM PRECISÃO ULTRA-RÁPIDA
 -- =============================================================================
-
 local function executarColetaMateriais(nomeItem)
     local hrp = getHRP()
     if not hrp then return end
@@ -182,7 +204,6 @@ local function executarColetaMateriais(nomeItem)
 
     if #alvos == 0 then return end
     
-    -- LOG DE INÍCIO: Avisa qual material o script detectou no mapa e foi buscar
     logarAcao("Farm Automático", "Buscando todos os itens tipo: [" .. nomeItem .. "] encontrados no mapa.", 1.5)
     
     ativarFlyTemporario(hrp)
@@ -191,12 +212,10 @@ local function executarColetaMateriais(nomeItem)
         if itemEstaAtivoNoMundo(obj) then
             local parte = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
             if parte then
-                -- Tranca o jogador firmemente flutuando em cima do item antes de interagir (Impede Void)
                 hrp.CFrame = parte.CFrame + Vector3.new(0, 1.5, 0)
                 task.wait(0.04)
 
                 local tentativas = 0
-                -- Loop de Força Bruta: Interage repetidamente até o ping responder e o item sumir
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
@@ -228,7 +247,6 @@ local function acionarFluxoVendas()
 
     if itensParaVender == 0 then return end
 
-    -- LOG DE VENDA: Avisa que a mochila está cheia e o teleporte para o reciclador iniciou
     logarAcao("Venda", "Mochila carregada! Teleportando para o Reciclador para vender " .. itensParaVender .. " itens.", 2)
 
     local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
@@ -237,7 +255,6 @@ local function acionarFluxoVendas()
         task.wait(0.3)
     end
 
-    -- Recarrega ferramentas após o teleporte para garantir estabilidade
     ferramentas = mochila:GetChildren()
     for _, item in ipairs(ferramentas) do
         if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
@@ -249,14 +266,13 @@ local function acionarFluxoVendas()
                 interagirComObjeto(botaoVender)
                 task.wait(0.04)
                 tentativas = tentativas + 1
-            until item.Parent ~= char or not item or tentativas > 10
+            until item.Parent ~= char or not item or tentatives > 10
         end
     end
     
     logarAcao("Venda", "Venda concluída com sucesso! Retornando para o ciclo de coleta.", 1.5)
 end
 
--- Thread gerenciadora em segundo plano do Auto Farm
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -273,7 +289,6 @@ task.spawn(function()
                 task.wait(0.2)
                 acionarFluxoVendas()
                 
-                -- Retorna de forma segura para a posição onde estava antes de começar a limpar o mapa
                 if AutoFarmAtivo then
                     local hrpAtual = getHRP()
                     if hrpAtual then hrpAtual.CFrame = posAntesDoCiclo end
@@ -284,9 +299,8 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- SISTEMAS DIVERSOS DE RASTREAMENTO VISUAL (ESP ANTI-FANTASMA)
+-- SISTEMAS DIVERSOS DE RASTREAMENTO VISUAL (ESP)
 -- =============================================================================
-
 local function limparESP()
     for _, esp in ipairs(ArmazenamentoESP) do if esp then pcall(function() esp:Destroy() end) end end
     ArmazenamentoESP = {}
@@ -297,7 +311,6 @@ local function atualizarESP()
     local scraps = workspace:FindFirstChild("Scraps")
     if not scraps then return end
 
-    -- Filtro anti-fantasmas ativo: elimina traços antigos de minérios sumidos
     for i = #ArmazenamentoESP, 1, -1 do
         local h = ArmazenamentoESP[i]
         if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
@@ -419,7 +432,7 @@ local function atualizarESPPortoes()
 end
 
 task.spawn(function()
-    while task.wait(0.4) do -- Frequência rápida para manter sincronia absoluta com o servidor
+    while task.wait(0.4) do 
         if ESPJogadoresAtivo then pcall(atualizarESPJogadores) end
         if ESPAtivo then pcall(atualizarESP) end
         if ESPMonstrosAtivo then pcall(atualizarESPMonstros) end
@@ -441,21 +454,6 @@ local function acionarPortaoEspecifico(idPortao)
         end
     end
     if executado then logarAcao("Portão", "Sinal enviado para o Portão: " .. idPortao) end
-end
-
-local function teleportarParaMonstro(nomeMonstro)
-    local hrp = getHRP()
-    if not hrp then return end
-    local monstro = obterInstanciaMonstro(nomeMonstro)
-    if monstro then
-        local parteAlvo = monstro:IsA("BasePart") and monstro or monstro:FindFirstChildWhichIsA("BasePart", true)
-        if parteAlvo then
-            hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 4, 0)
-            logarAcao("Teleporte", "Levado com segurança até: " .. nomeMonstro)
-        end
-    else
-        logarAcao("Aviso", nomeMonstro .. " não foi encontrado no mapa.")
-    end
 end
 
 
@@ -536,12 +534,28 @@ end
 
 
 -- ABA: UTILIDADES GERAIS
-TabGeral:CreateSection("Movimentação")
+TabGeral:CreateSection("Visualização e Ambiente")
+-- INTEGRADO NO LUGAR DO CFLY
 TabGeral:CreateToggle({
-    Name = "Voar (Fly)",
+    Name = "Terceira Pessoa (Third Person)",
     CurrentValue = false,
-    Flag = "ToggleCFlyManual",
-    Callback = function(Value) CFlyAtivo = Value end
+    Flag = "ToggleTerceiraPessoa",
+    Callback = function(Value) 
+        TerceiraPessoaAtiva = Value 
+        if not Value then
+            -- Restaura o padrão do jogo ao desativar
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            Camera.CameraType = Enum.CameraType.Custom
+            local char = LocalPlayer.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid.AutoRotate = true end
+        else
+            -- Sincroniza ângulos iniciais
+            local _, Y, _ = Camera.CFrame:ToOrientation()
+            AnguloX = math.deg(Y)
+            AnguloY = 0
+        end
+    end
 })
 TabGeral:CreateButton({
     Name = "Brilho Máximo (Fullbright)",
