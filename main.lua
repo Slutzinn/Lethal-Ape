@@ -520,7 +520,7 @@ TabVisual:CreateToggle({
 -- ABA: CONTROLE DE PORTÕES
 TabPortoes:CreateSection("Portões")
 TabPortoes:CreateButton({
-    Name = "Abrir/Fechar Todas as Portas",
+    Name = "Abrir/Fechar Todos os Portões",
     Callback = function()
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj.Name == "ButtonDoor" then
@@ -531,7 +531,7 @@ TabPortoes:CreateButton({
     end
 })
 for i = 1, 4 do
-    TabPortoes:CreateButton({ Name = "Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
+    TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
 
