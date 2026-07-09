@@ -211,7 +211,7 @@ local function acionarFluxoVendas()
         if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
             item.Parent = char
             task.wait(0.02)
-           
+          
             local tentativas = 0
             repeat
                 interagirComObjeto(botaoVender)
@@ -347,7 +347,7 @@ local function atualizarESPMonstros()
         if monstro then
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_MonsterESP"
-            highlight.FillColor = Color3.fromRGB(255, 0,  red)
+            highlight.FillColor = Color3.fromRGB(255, 0, 0)
             highlight.FillTransparency = 0.5
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Adornee = monstro
@@ -482,34 +482,49 @@ end
 -- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Visualização e Ambiente")
 
--- NOVO SISTEMA ESTILO INFINITE YIELD (TERCEIRA PESSOA PADRÃO DESBLOQUEADA)
+-- SISTEMA CORRIGIDO DE DESBLOQUEIO DE CÂMERA (SAIR DA 1ª PESSOA TRAVADA)
 TabGeral:CreateToggle({
-    Name = "Terceira Pessoa (Third Person)",
+    Name = "Desbloquear Câmera (Zoom Livre)",
     CurrentValue = false,
     Flag = "ToggleTerceiraPessoa",
     Callback = function(Value) 
         TerceiraPessoaAtiva = Value 
         if TerceiraPessoaAtiva then
-            -- Configurações padrão do Roblox que o Infinite Yield altera para forçar/desbloquear o Zoom
+            -- Força o modo clássico para desligar a Primeira Pessoa obrigatória do jogo
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
             LocalPlayer.CameraMaxZoomDistance = 100000
             LocalPlayer.CameraMinZoomDistance = 0.5
             Camera.CameraType = Enum.CameraType.Custom
             
-            -- Dá um pequeno "empurrão" na câmera para afastar do personagem caso esteja colado em primeira pessoa
-            if (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 2 then
-                LocalPlayer.CameraMinZoomDistance = 10
-                task.wait(0.05)
-                LocalPlayer.CameraMinZoomDistance = 0.5
-            end
-            logarAcao("Câmera", "Terceira pessoa ativada. Use o Scroll do mouse para regular o zoom livremente.")
+            -- Afasta a câmera imediatamente para tirá-la do rosto do personagem
+            LocalPlayer.CameraMinZoomDistance = 15
+            task.wait(0.05)
+            LocalPlayer.CameraMinZoomDistance = 0.5
+            
+            logarAcao("Câmera", "Câmera desbloqueada! Use a rolagem do mouse para controlar o zoom.")
         else
-            -- Reseta para o padrão normal do Roblox
+            -- Retorna ao padrão original do jogo
             LocalPlayer.CameraMaxZoomDistance = 128
             LocalPlayer.CameraMinZoomDistance = 0.5
             Camera.CameraType = Enum.CameraType.Custom
         end
     end
 })
+
+-- Loop auxiliar para garantir que o jogo não tente travar sua câmera de volta enquanto o botão estiver ligado
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if TerceiraPessoaAtiva then
+            if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then
+                LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            end
+            if LocalPlayer.CameraMaxZoomDistance < 100000 then
+                LocalPlayer.CameraMaxZoomDistance = 100000
+            end
+        end
+    end
+end)
 
 TabGeral:CreateButton({
     Name = "Brilho Máximo (Fullbright)",
