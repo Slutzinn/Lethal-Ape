@@ -30,10 +30,10 @@ local Camera = workspace.CurrentCamera
 
 -- Estados Globais de Funcionamento
 local AutoFarmAtivo = false
-local ModoRapidoAtivo = true -- Forçado verdadeiro para garantir a velocidade ultra pretendida
+local ModoRapidoAtivo = true 
 local FullbrightAtivo = false
 local LoopColorirAtivo = false
-local TerceiraPessoaAtiva = false -- Estado da Terceira Pessoa
+local TerceiraPessoaAtiva = false 
 
 local ESPAtivo = false
 local ESPMonstrosAtivo = false
@@ -45,12 +45,6 @@ local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
-
--- Configurações da Terceira Pessoa
-local DistanciaCameraTP = 8
-local DeslocamentoCameraTP = Vector3.new(2, 1.5, 0) -- Visão sobre o ombro direito
-local AnguloX, AnguloY = 0, 0
-local SensibilidadeTP = 0.5
 
 -- Filtro Rígido de Validação de Itens da Mochila
 local mineriosPermitidos = { 
@@ -89,7 +83,7 @@ local function enviarChat(mensagem)
 end
 
 -- =============================================================================
--- SISTEMA DE VOO AUTOMÁTICO AUXILIAR (EVITA QUEDA NO VOID DURANTE O FARM)
+-- SISTEMA DE VOO AUTOMÁTICO AUXILIAR
 -- =============================================================================
 local flyVelocity, flyGyro
 
@@ -98,7 +92,6 @@ local function ativarFlyTemporario(rootPart)
     if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
     if flyGyro then pcall(function() flyGyro:Destroy() end) end
 
-    -- Forças absolutas para trancar a física do boneco no ar impedindo quedas por lag
     flyVelocity = Instance.new("BodyVelocity")
     flyVelocity.Velocity = Vector3.new(0, 0, 0)
     flyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
@@ -114,48 +107,6 @@ local function desativarFlyTemporario()
     if flyVelocity then pcall(function() flyVelocity:Destroy() end); flyVelocity = nil end
     if flyGyro then pcall(function() flyGyro:Destroy() end); flyGyro = nil end
 end
-
--- =============================================================================
--- LÓGICA DE ATUALIZAÇÃO DA TERCEIRA PESSOA (RENDER STEP)
--- =============================================================================
-RunService:BindToRenderStep("CameraTerceiraPessoa", Enum.RenderPriority.Camera.Value + 1, function()
-    if not TerceiraPessoaAtiva then return end
-    
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not humanoid then return end
-
-    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-    humanoid.AutoRotate = false
-
-    local DeltaMouse = UserInputService:GetMouseDelta()
-    AnguloX = AnguloX - (DeltaMouse.X * SensibilidadeTP)
-    AnguloY = math.clamp(AnguloY - (DeltaMouse.Y * SensibilidadeTP), -70, 70)
-
-    local RotacaoCFrame = CFrame.Angles(0, math.rad(AnguloX), 0) * CFrame.Angles(math.rad(AnguloY), 0, 0)
-    local PosicaoFoco = hrp.Position + RotacaoCFrame:VectorToWorldSpace(DeslocamentoCameraTP)
-    local PosicaoCamera = PosicaoFoco - (RotacaoCFrame.LookVector * DistanciaCameraTP)
-
-    -- Sistema Anti-Parede integrado
-    local ParametrosRaio = RaycastParams.new()
-    ParametrosRaio.FilterDescendantsInstances = {char}
-    ParametrosRaio.FilterType = Enum.RaycastFilterType.Exclude
-
-    local ResultadoRaio = workspace:Raycast(PosicaoFoco, (PosicaoCamera - PosicaoFoco), ParametrosRaio)
-    if ResultadoRaio then
-        PosicaoCamera = ResultadoRaio.Position + (ResultadoRaio.Normal * 0.5)
-    end
-
-    Camera.CameraType = Enum.CameraType.Scriptable
-    Camera.CFrame = CFrame.new(PosicaoCamera, PosicaoFoco)
-    
-    if humanoid.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(hrp.Position, hrp.Position + Vector3.new(RotacaoCFrame.LookVector.X, 0, RotacaoCFrame.LookVector.Z)), 0.2)
-    end
-end)
 
 -- Interação imediata com click ou prompts
 local function interagirComObjeto(instancia)
@@ -260,13 +211,13 @@ local function acionarFluxoVendas()
         if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
             item.Parent = char
             task.wait(0.02)
-            
+           
             local tentativas = 0
             repeat
                 interagirComObjeto(botaoVender)
                 task.wait(0.04)
                 tentativas = tentativas + 1
-            until item.Parent ~= char or not item or tentatives > 10
+            until item.Parent ~= char or not item or tentativas > 10
         end
     end
     
@@ -396,7 +347,7 @@ local function atualizarESPMonstros()
         if monstro then
             local highlight = Instance.new("Highlight")
             highlight.Name = "Nunes_MonsterESP"
-            highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            highlight.FillColor = Color3.fromRGB(255, 0,  red)
             highlight.FillTransparency = 0.5
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Adornee = monstro
@@ -456,7 +407,6 @@ local function acionarPortaoEspecifico(idPortao)
     if executado then logarAcao("Portão", "Sinal enviado para o Portão: " .. idPortao) end
 end
 
-
 -- =============================================================================
 -- MONTAGEM DOS COMPONENTES DA INTERFACE DO USUÁRIO
 -- =============================================================================
@@ -477,7 +427,6 @@ TabFarm:CreateParagraph({
     Content = "Coleta e vende os itens disponíveis no mapa automaticamente."
 })
 
-
 -- ABA: COLETAS MANUAIS
 TabManual:CreateSection("Farm Manual")
 TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMateriais("Gold") end })
@@ -485,7 +434,6 @@ TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() execut
 TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarColetaMateriais("Copper") end })
 TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMateriais("Emerald") end })
 TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMateriais("Meat") end })
-
 
 -- ABA: VISUAL & RASTREIO
 TabVisual:CreateSection("ESP (Visuais)")
@@ -514,7 +462,6 @@ TabVisual:CreateToggle({
     Callback = function(Value) ESPMonstrosAtivo = Value; if Value then atualizarESPMonstros() else limparESPMonstros() end end
 })
 
-
 -- ABA: CONTROLE DE PORTÕES
 TabPortoes:CreateSection("Portões")
 TabPortoes:CreateButton({
@@ -532,31 +479,38 @@ for i = 1, 4 do
     TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
-
 -- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Visualização e Ambiente")
--- INTEGRADO NO LUGAR DO CFLY
+
+-- NOVO SISTEMA ESTILO INFINITE YIELD (TERCEIRA PESSOA PADRÃO DESBLOQUEADA)
 TabGeral:CreateToggle({
     Name = "Terceira Pessoa (Third Person)",
     CurrentValue = false,
     Flag = "ToggleTerceiraPessoa",
     Callback = function(Value) 
         TerceiraPessoaAtiva = Value 
-        if not Value then
-            -- Restaura o padrão do jogo ao desativar
-            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        if TerceiraPessoaAtiva then
+            -- Configurações padrão do Roblox que o Infinite Yield altera para forçar/desbloquear o Zoom
+            LocalPlayer.CameraMaxZoomDistance = 100000
+            LocalPlayer.CameraMinZoomDistance = 0.5
             Camera.CameraType = Enum.CameraType.Custom
-            local char = LocalPlayer.Character
-            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-            if humanoid then humanoid.AutoRotate = true end
+            
+            -- Dá um pequeno "empurrão" na câmera para afastar do personagem caso esteja colado em primeira pessoa
+            if (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 2 then
+                LocalPlayer.CameraMinZoomDistance = 10
+                task.wait(0.05)
+                LocalPlayer.CameraMinZoomDistance = 0.5
+            end
+            logarAcao("Câmera", "Terceira pessoa ativada. Use o Scroll do mouse para regular o zoom livremente.")
         else
-            -- Sincroniza ângulos iniciais
-            local _, Y, _ = Camera.CFrame:ToOrientation()
-            AnguloX = math.deg(Y)
-            AnguloY = 0
+            -- Reseta para o padrão normal do Roblox
+            LocalPlayer.CameraMaxZoomDistance = 128
+            LocalPlayer.CameraMinZoomDistance = 0.5
+            Camera.CameraType = Enum.CameraType.Custom
         end
     end
 })
+
 TabGeral:CreateButton({
     Name = "Brilho Máximo (Fullbright)",
     Callback = function()
@@ -618,7 +572,6 @@ TabGeral:CreateButton({
 })
 TabGeral:CreateButton({ Name = "Vender Itens", Callback = function() acionarFluxoVendas() end })
 
-
 -- ABA: DANÇAS & EMOTES
 TabDancas:CreateSection("Chat")
 local comandos = {
@@ -634,9 +587,8 @@ for _, cmd in ipairs(comandos) do
     TabDancas:CreateButton({ Name = cmd[1], Callback = function() enviarChat(cmd[2]) end })
 end
 
-
 -- =============================================================================
--- ESCUTAS DINÂMICAS DE EVENTOS (SINCRONIZAÇÃO EM TEMPO REAL)
+-- ESCUTAS DINÂMICAS DE EVENTOS
 -- =============================================================================
 workspace.DescendantAdded:Connect(function(desc)
     if ESPAtivo and desc.Parent and desc.Parent.Name == "Scraps" then pcall(atualizarESP) end
