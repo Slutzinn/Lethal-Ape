@@ -130,7 +130,7 @@ local function encontrarReciclador()
     return nil, nil
 end
 
--- LOCALIZAÇÃO CORRIGIDA DO ELEVADOR (BASEADO NO SEU DIRETÓRIO)
+-- LOCALIZAÇÃO DO ELEVADOR
 local function encontrarElevador()
     if workspace:FindFirstChild("Mapa") and workspace.Mapa:FindFirstChild("Elevador") then
         return workspace.Mapa.Elevador
@@ -393,7 +393,6 @@ local function atualizarESPPortoes()
     end
 end
 
--- ESP DO ELEVADOR CORRIGIDO PARA REALÇAR A BASE OU O MODELO CERTO
 local function limparESPElevador()
     for _, esp in ipairs(ArmazenamentoESPElevador) do if esp then pcall(function() esp:Destroy() end) end end
     ArmazenamentoESPElevador = {}
@@ -404,7 +403,6 @@ local function atualizarESPElevador()
     if not ESPElevadorAtivo then return end
     local elevador = encontrarElevador()
     if elevador then
-        -- Se houver "BaseDoElevador", colocamos o ESP nela, senão no modelo inteiro
         local alvoVisual = elevador:FindFirstChild("BaseDoElevador") or elevador
         local highlight = Instance.new("Highlight")
         highlight.Name = "Nunes_ElevadorESP"
@@ -522,7 +520,7 @@ for i = 1, 4 do
 end
 
 -- =============================================================================
--- ABA CORRIGIDA: CONTROLE COMPLETO DO ELEVADOR
+-- ABA REVISADA: CONTROLE DO ELEVADOR (OPÇÕES DE SUBIR E DESCER SEPARADAS)
 -- =============================================================================
 TabElevador:CreateSection("Controle e Teleporte")
 TabElevador:CreateButton({
@@ -531,7 +529,6 @@ TabElevador:CreateButton({
         local elevador = encontrarElevador()
         local hrp = getHRP()
         if hrp and elevador then
-            -- Dá preferência para pousar na BaseDoElevador
             local alvo = elevador:FindFirstChild("BaseDoElevador") or elevador:FindFirstChild("DButton") or elevador
             local parteAlvo = alvo:IsA("BasePart") and alvo or alvo:FindFirstChildWhichIsA("BasePart", true)
             
@@ -547,18 +544,19 @@ TabElevador:CreateButton({
     end
 })
 
--- BOTÕES DE INTERAÇÃO COM PRECISÃO DE DIRETÓRIO (CLICKDETECTORS ESPECÍFICOS)
+-- BOTÕES DE COMANDO SEPARADOS E IDENTIFICADOS
 TabElevador:CreateButton({
-    Name = "Subir / Baixar (DButton)",
+    Name = "Subir (Cima)",
     Callback = function()
         local elevador = encontrarElevador()
         if elevador then
-            local dButton = elevador:FindFirstChild("DButton")
-            if dButton then
-                interagirComObjeto(dButton)
-                logarAcao("Elevador", "Click enviado para o DButton!", 1.5)
+            -- Procura primeiro pelo nome 'UButton' ou usa o GetChildren()[4] por garantia de fallback
+            local uButton = elevador:FindFirstChild("UButton") or (elevador:GetChildren()[4])
+            if uButton then
+                interagirComObjeto(uButton)
+                logarAcao("Elevador", "Comando enviado para Subir!", 1.5)
             else
-                logarAcao("Erro", "DButton não foi encontrado dentro do Elevador.", 2)
+                logarAcao("Erro", "Botão de Subir (UButton) não encontrado.", 2)
             end
         else
             logarAcao("Aviso", "Elevador não encontrado.", 2)
@@ -567,16 +565,16 @@ TabElevador:CreateButton({
 })
 
 TabElevador:CreateButton({
-    Name = "Chamar pelo Botão Alternativo (bUTTON)",
+    Name = "Descer (Baixo)",
     Callback = function()
         local elevador = encontrarElevador()
         if elevador then
-            local buttonAlt = elevador:FindFirstChild("bUTTON") or elevador:FindFirstChild("Button")
-            if buttonAlt then
-                interagirComObjeto(buttonAlt)
-                logarAcao("Elevador", "Click enviado para o bUTTON alternativo!", 1.5)
+            local dButton = elevador:FindFirstChild("DButton")
+            if dButton then
+                interagirComObjeto(dButton)
+                logarAcao("Elevador", "Comando enviado para Descer!", 1.5)
             else
-                logarAcao("Erro", "bUTTON secundário não encontrado.", 2)
+                logarAcao("Erro", "Botão de Descer (DButton) não encontrado.", 2)
             end
         else
             logarAcao("Aviso", "Elevador não encontrado.", 2)
