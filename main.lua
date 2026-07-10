@@ -27,11 +27,13 @@ local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- Estados Globais de Funcionamento
 local AutoFarmAtivo = false
+local AutoHopFarmAtivo = false
 local ModoRapidoAtivo = true 
 local FullbrightAtivo = false
 local LoopColorirAtivo = false
@@ -81,6 +83,24 @@ end
 local function getHRP()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart", 5)
+end
+
+-- Função para trocar de servidor de forma segura (Server Hop)
+local function pularServidor()
+    logarAcao("AutoHop", "Buscando um novo servidor público...", 5)
+    task.wait(1)
+    pcall(function()
+        local tps = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"))
+        for _, server in ipairs(tps.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                if writefile then
+                    writefile("LethalApe_AutoHop.txt", "true")
+                end
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                break
+            end
+        end
+    end)
 end
 
 -- Monitoramento de Morte para Salvar Posição
@@ -273,10 +293,11 @@ local function acionarFluxoVendas()
     logarAcao("Venda", "Venda concluída com sucesso!", 1.5)
 end
 
+-- Loop Unificado de Farm Inteligente
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if AutoFarmAtivo then
+        if AutoFarmAtivo or AutoHopFarmAtivo then
             pcall(function()
                 local posAntesDoCiclo = getHRP().CFrame
                 
@@ -289,9 +310,15 @@ task.spawn(function()
                 task.wait(0.2)
                 acionarFluxoVendas()
                 
-                if AutoFarmAtivo then
+                if AutoFarmAtivo or AutoHopFarmAtivo then
                     local hrpAtual = getHRP()
                     if hrpAtual then hrpAtual.CFrame = posAntesDoCiclo end
+                end
+
+                -- Se a modalidade for AutoHop, ele muda de server após limpar o mapa e vender
+                if AutoHopFarmAtivo then
+                    if delfile then pcall(function() delfile("LethalApe_AutoHop.txt") end) end
+                    pularServidor()
                 end
             end)
         end
@@ -305,7 +332,6 @@ local function obterListaJogadores()
     local lista = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            -- Formato amigável: Nome de Exibição (@Usuario)
             local formatoTexto = p.DisplayName .. " (@" .. p.Name .. ")"
             table.insert(lista, formatoTexto)
         end
@@ -520,20 +546,37 @@ end
 -- ABA: AUTO FARM SUPREMO
 TabFarm:CreateSection("Automação")
 TabFarm:CreateToggle({
-    Name = "Farm Automático",
+    Name = "Farm Automático (Normal)",
     CurrentValue = false,
     Flag = "ToggleAutoFarmSupremo",
     Callback = function(Value)
         AutoFarmAtivo = Value
-        logarAcao("Sistema", AutoFarmAtivo and "Farm Automático ATIVADO. Varrendo o servidor..." or "Farm Automático DESATIVADO de forma segura.")
+        logarAcao("Sistema", AutoFarmAtivo and "Farm Automático ATIVADO." or "Farm Automático DESATIVADO.")
     end
 })
-TabFarm:CreateParagraph({
-    Title = "Informação",
-    Content = "Coleta e vende os itens disponíveis no mapa automaticamente."
+
+local ToggleAutoHop = TabFarm:CreateToggle({
+    Name = "AutoHopFarm (Próximo Server)",
+    CurrentValue = false,
+    Flag = "ToggleAutoHopFarm",
+    Callback = function(Value)
+        AutoHopFarmAtivo = Value
+        if AutoHopFarmAtivo then
+            if writefile then writefile("LethalApe_AutoHop.txt", "true") end
+            logarAcao("AutoHop", "Farm com rotação de servidores ATIVADO!")
+        else
+            if delfile then pcall(function() delfile("LethalApe_AutoHop.txt") end) end
+            logarAcao("AutoHop", "Farm com rotação de servidores DESATIVADO.")
+        end
+    end
 })
 
--- ABA: COLETAS MANUAIS (CORRIGIDO: executarColetaMateriais)
+TabFarm:CreateParagraph({
+    Title = "Informação",
+    Content = "O AutoHopFarm limpa o mapa atual, vende os itens no reciclador e te move para outro servidor público automaticamente."
+})
+
+-- ABA: COLETAS MANUAIS
 TabManual:CreateSection("Farm Manual")
 TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMateriais("Gold") end })
 TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMateriais("Diamond") end })
@@ -541,9 +584,7 @@ TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarC
 TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMateriais("Emerald") end })
 TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMateriais("Meat") end })
 
--- =============================================================================
--- ABA: CONTROLE DE JOGADORES (FOTO DE PERFIL E APENAS DISPLAYNAME + USERNAME)
--- =============================================================================
+-- ABA: CONTROLE DE JOGADORES
 TabPlayers:CreateSection("Alvos Disponíveis")
 
 DropdownJogadores = TabPlayers:CreateDropdown({
@@ -768,9 +809,7 @@ TabElevador:CreateButton({
     end
 })
 
--- =============================================================================
--- ABA: UTILIDADES GERAIS (COMPLETADA E INTEGRADA)
--- =============================================================================
+-- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Interações Especiais")
 
 TabGeral:CreateButton({
@@ -965,3 +1004,17 @@ end)
 
 Players.PlayerAdded:Connect(function() if ESPJogadoresAtivo then task.wait(1); pcall(atualizarESPJogadores) end end)
 Players.PlayerRemoving:Connect(function() if ESPJogadoresAtivo then pcall(atualizarESPJogadores) end end)
+
+-- =============================================================================
+-- VERIFICAÇÃO INICIAL AUTO-LOAD (AUTO-HOP ATIVO ANTERIORMENTE)
+-- =============================================================================
+if readfile and isfile and isfile("LethalApe_AutoHop.txt") then
+    local status = readfile("LethalApe_AutoHop.txt")
+    if status == "true" then
+        task.spawn(function()
+            repeat task.wait(0.5) until ToggleAutoHop ~= nil
+            ToggleAutoHop:Set(true)
+            logarAcao("AutoHop", "Novo servidor carregado. Farm reiniciado automaticamente!", 4)
+        end)
+    end
+end
