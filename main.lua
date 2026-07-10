@@ -533,13 +533,13 @@ TabFarm:CreateParagraph({
     Content = "Coleta e vende os itens disponíveis no mapa automaticamente."
 })
 
--- ABA: COLETAS MANUAIS
+-- ABA: COLETAS MANUAIS (CORRIGIDO: executarColetaMateriais)
 TabManual:CreateSection("Farm Manual")
-TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMaterials("Gold") end })
-TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMaterials("Diamond") end })
-TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarColetaMaterials("Copper") end })
-TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMaterials("Emerald") end })
-TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMaterials("Meat") end })
+TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMateriais("Gold") end })
+TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMateriais("Diamond") end })
+TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarColetaMateriais("Copper") end })
+TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMateriais("Emerald") end })
+TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMateriais("Meat") end })
 
 -- =============================================================================
 -- ABA: CONTROLE DE JOGADORES (FOTO DE PERFIL E APENAS DISPLAYNAME + USERNAME)
@@ -555,13 +555,11 @@ DropdownJogadores = TabPlayers:CreateDropdown({
     Callback = function(Option)
         local selecao = type(Option) == "table" and Option[1] or Option
         if selecao and selecao ~= "" then
-            -- Isola o @usuario de dentro dos parênteses
             local usuarioTratado = string.match(selecao, "@([^)]+)")
             if usuarioTratado then
                 JogadorSelecionadoNome = usuarioTratado
                 local alvoInstancia = Players:FindFirstChild(JogadorSelecionadoNome)
                 if alvoInstancia then
-                    -- rbxthumb para puxar a foto circular oficial do perfil
                     local urlFotoPerfil = "rbxthumb://type=Avatar&id=" .. alvoInstancia.UserId .. "&w=420&h=420"
                     
                     ParagrafoPerfil:Set({
@@ -623,7 +621,7 @@ TabPlayers:CreateButton({
                     logarAcao("Teleporte", "Teleportado com sucesso para " .. alvo.DisplayName)
                 end
             else
-                logarAcao("Erro", "Incapaz de achar o ponto de teleporte do alvo.", 2)
+                logarAcao("Erro", "Incapaz de achar o point de teleporte do alvo.", 2)
             end
         else
             logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
@@ -643,7 +641,6 @@ TabPlayers:CreateButton({
                     local posicaoAntesSusto = meuHrp.CFrame
                     ativarFlyTemporario(meuHrp)
                     
-                    -- Calcula a posição perfeitamente na frente do alvo, virado para ele
                     meuHrp.CFrame = alvoHrp.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, math.pi, 0)
                     logarAcao("BOO!", "Você assustou " .. alvo.DisplayName .. "!", 1)
                     
@@ -772,7 +769,7 @@ TabElevador:CreateButton({
 })
 
 -- =============================================================================
--- ABA: UTILIDADES GERAIS
+-- ABA: UTILIDADES GERAIS (COMPLETADA E INTEGRADA)
 -- =============================================================================
 TabGeral:CreateSection("Interações Especiais")
 
@@ -861,7 +858,6 @@ task.spawn(function()
                 LocalPlayer.CameraMaxZoomDistance = 100000
             end
         end
-        -- Mantém o foco no spectate se o alvo se mover
         if SpectateAtivo and JogadorSelecionadoNome ~= "" then
             local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
             if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
@@ -882,6 +878,7 @@ TabGeral:CreateButton({
         Lighting.GlobalShadows = not FullbrightAtivo
     end
 })
+
 TabGeral:CreateToggle({
     Name = "Anti-Jumpscare",
     CurrentValue = false,
@@ -906,6 +903,7 @@ TabGeral:CreateToggle({
         end
     end
 })
+
 TabGeral:CreateToggle({
     Name = "Skin Arco-Íris",
     CurrentValue = false,
@@ -924,6 +922,7 @@ TabGeral:CreateToggle({
         end
     end
 })
+
 TabGeral:CreateSection("Locais")
 TabGeral:CreateButton({
     Name = "Teleportar para o Spawn",
