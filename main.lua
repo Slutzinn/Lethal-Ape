@@ -167,7 +167,7 @@ local function itemEstaAtivoNoMundo(objeto)
 end
 
 -- =============================================================================
--- MECANISMO DE COLETAS COM PRECISÃO ULTRA-RÁPIDA
+-- MECANISMO DE COLETAS COM PRECISÃO ULTRA-RÁPIDA (COM PROTEÇÃO ANTI-VOID)
 -- =============================================================================
 local function executarColetaMateriais(nomeItem)
     local hrp = getHRP()
@@ -184,7 +184,10 @@ local function executarColetaMateriais(nomeItem)
 
     if #alvos == 0 then return end
     
-    logarAcao("Farm Automático", "Buscando todos os itens tipo: [" .. nomeItem .. "] encontrados no mapa.", 1.5)
+    logarAcao("Farm", "Buscando itens tipo: [" .. nomeItem .. "].", 1.5)
+    
+    -- Salva a posição original segura antes do teleporte
+    local posicaoAnteriorSegura = hrp.CFrame
     
     ativarFlyTemporario(hrp)
 
@@ -192,19 +195,24 @@ local function executarColetaMateriais(nomeItem)
         if itemEstaAtivoNoMundo(obj) then
             local parte = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
             if parte then
-                hrp.CFrame = parte.CFrame + Vector3.new(0, 1.5, 0)
-                task.wait(0.04)
+                -- Teleporta um pouco acima do item e força estabilização do Fly
+                hrp.CFrame = parte.CFrame + Vector3.new(0, 2, 0)
+                if flyVelocity then flyVelocity.Velocity = Vector3.new(0, 0, 0) end
+                task.wait(0.05)
 
                 local tentativas = 0
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
                     tentativas = tentativas + 1
-                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentativas > 15
+                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentativas > 12
             end
         end
     end
     
+    -- Teleporta forçadamente de volta para a posição segura antes de desligar o fly
+    hrp.CFrame = posicaoAnteriorSegura
+    task.wait(0.05)
     desativarFlyTemporario()
 end
 
@@ -227,11 +235,13 @@ local function acionarFluxoVendas()
 
     if itensParaVender == 0 then return end
 
-    logarAcao("Venda", "Mochila carregada! Teleportando para o Reciclador para vender " .. itensParaVender .. " itens.", 2)
+    logarAcao("Venda", "Mochila carregada! Teleportando para o Reciclador.", 2)
+    local posicaoAntesVenda = hrp.CFrame
 
     local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
     if parteAlvo then
-        hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 2, 0)
+        ativarFlyTemporario(hrp)
+        hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 3, 0)
         task.wait(0.3)
     end
 
@@ -250,7 +260,10 @@ local function acionarFluxoVendas()
         end
     end
     
-    logarAcao("Venda", "Venda concluída com sucesso! Retornando para o ciclo de coleta.", 1.5)
+    hrp.CFrame = posicaoAntesVenda
+    task.wait(0.05)
+    desativarFlyTemporario()
+    logarAcao("Venda", "Venda concluída com sucesso!", 1.5)
 end
 
 task.spawn(function()
@@ -597,11 +610,10 @@ TabElevador:CreateButton({
 })
 
 -- =============================================================================
--- ABA: UTILIDADES GERAIS (ATUALIZADA COM NOVAS OPÇÕES)
+-- ABA: UTILIDADES GERAIS
 -- =============================================================================
 TabGeral:CreateSection("Interações Especiais")
 
--- NOVA OPÇÃO: PEGAR LANTERNA
 TabGeral:CreateButton({
     Name = "Pegar Lanterna",
     Callback = function()
@@ -611,15 +623,17 @@ TabGeral:CreateButton({
             if prompt then
                 local hrp = getHRP()
                 if hrp then
-                    -- Teleporta temporariamente bem perto para garantir o alcance do prompt
                     local posOriginal = hrp.CFrame
                     local parteAlvo = lightModel:IsA("BasePart") and lightModel or lightModel:FindFirstChildWhichIsA("BasePart", true)
                     if parteAlvo then
+                        ativarFlyTemporario(hrp)
                         hrp.CFrame = parteAlvo.CFrame
                         task.wait(0.1)
                         fireproximityprompt(prompt)
                         task.wait(0.1)
                         hrp.CFrame = posOriginal
+                        task.wait(0.05)
+                        desativarFlyTemporario()
                         logarAcao("Lanterna", "Lanterna coletada com sucesso!", 2)
                     end
                 end
@@ -632,7 +646,6 @@ TabGeral:CreateButton({
     end
 })
 
--- NOVA OPÇÃO: REVIVER (VOLTAR PARA A ÚLTIMA MORTE)
 TabGeral:CreateButton({
     Name = "Reviver (Voltar Posição da Morte)",
     Callback = function()
