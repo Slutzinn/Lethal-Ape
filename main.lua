@@ -15,6 +15,7 @@ local Window = Rayfield:CreateWindow({
 
 local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
+local TabPlayers = Window:CreateTab("Controle de Jogadores", 4483362458) -- NOVA CATEGORIA
 local TabVisual = Window:CreateTab("ESP (Visuais)", 4483362458)
 local TabPortoes = Window:CreateTab("Portões", 4483362458)
 local TabElevador = Window:CreateTab("Elevador", 4483362458) 
@@ -35,6 +36,7 @@ local ModoRapidoAtivo = true
 local FullbrightAtivo = false
 local LoopColorirAtivo = false
 local TerceiraPessoaAtiva = false 
+local SpectateAtivo = false
 
 local ESPAtivo = false
 local ESPMonstrosAtivo = false
@@ -42,6 +44,10 @@ local ESPPortoesAtivo = false
 local ESPJogadoresAtivo = false
 local ESPElevadorAtivo = false 
 local AntijumpscareAtivo = false
+
+-- Variáveis de Controle de Jogadores Selecionados
+local JogadorSelecionadoNome = ""
+local DropdownJogadores = nil
 
 -- Variável para guardar a posição da última morte
 local UltimaPosicaoMorte = nil
@@ -200,12 +206,12 @@ local function executarColetaMateriais(nomeItem)
                 if flyVelocity then flyVelocity.Velocity = Vector3.new(0, 0, 0) end
                 task.wait(0.05)
 
-                local tentativas = 0
+                local tentatives = 0
                 repeat
                     interagirComObjeto(obj)
                     task.wait(0.03)
-                    tentativas = tentativas + 1
-                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentativas > 12
+                    tentatives = tentatives + 1
+                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentatives > 12
             end
         end
     end
@@ -251,12 +257,12 @@ local function acionarFluxoVendas()
             item.Parent = char
             task.wait(0.02)
          
-            local tentativas = 0
+            local tentatives = 0
             repeat
                 interagirComObjeto(botaoVender)
                 task.wait(0.04)
-                tentativas = tentativas + 1
-            until item.Parent ~= char or not item or tentativas > 10
+                tentatives = tentatives + 1
+            until item.Parent ~= char or not item or tentatives > 10
         end
     end
     
@@ -289,6 +295,35 @@ task.spawn(function()
             end)
         end
     end
+end)
+
+-- =============================================================================
+-- FUNÇÃO ATUALIZADORA DE LISTA PARA O DROPDOWN DE JOGADORES
+-- =============================================================================
+local function obterListaJogadores()
+    local lista = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(lista, p.Name)
+        end
+    end
+    return lista
+end
+
+local function atualizarDropdownJogadores()
+    if DropdownJogadores then
+        DropdownJogadores:Refresh(obterListaJogadores(), true)
+    end
+end
+
+Players.PlayerAdded:Connect(atualizarDropdownJogadores)
+Players.PlayerRemoving:Connect(function(player)
+    if player.Name == JogadorSelecionadoNome then
+        JogadorSelecionadoNome = ""
+        SpectateAtivo = false
+        Camera.CameraSubject = LocalPlayer.Character:WaitForChild("Humanoid")
+    end
+    atualizarDropdownJogadores()
 end)
 
 -- =============================================================================
@@ -500,6 +535,103 @@ TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarC
 TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMateriais("Emerald") end })
 TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMateriais("Meat") end })
 
+-- =============================================================================
+-- NOVA ABA: CONTROLE DE JOGADORES (SPECTATE, TELEPORT & JUMPSCARE)
+-- =============================================================================
+TabPlayers:CreateSection("Alvos Disponíveis")
+
+DropdownJogadores = TabPlayers:CreateDropdown({
+    Name = "Selecionar Jogador",
+    Options = obterListaJogadores(),
+    CurrentOption = "",
+    MultipleOptions = false,
+    Flag = "DropdownJogadoresServidor",
+    Callback = function(Option)
+        JogadorSelecionadoNome = type(Option) == "table" and Option[1] or Option
+    end,
+})
+
+TabPlayers:CreateSection("Ações Interativas")
+
+TabPlayers:CreateToggle({
+    Name = "Ver Jogador (Spectate)",
+    CurrentValue = false,
+    Flag = "ToggleSpectateJogador",
+    Callback = function(Value)
+        SpectateAtivo = Value
+        if SpectateAtivo then
+            if JogadorSelecionadoNome ~= "" then
+                local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
+                if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
+                    Camera.CameraSubject = alvo.Character.Humanoid
+                    logarAcao("Spectate", "Espionando a visão de: " .. JogadorSelecionadoNome)
+                else
+                    logarAcao("Erro", "Jogador não possui personagem ativo ou sumiu.", 2)
+                end
+            else
+                logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
+            end
+        else
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                Camera.CameraSubject = LocalPlayer.Character.Humanoid
+                logarAcao("Spectate", "Visão retornada ao seu personagem.")
+            end
+        end
+    end
+})
+
+TabPlayers:CreateButton({
+    Name = "Teleportar para o Jogador",
+    Callback = function()
+        if JogadorSelecionadoNome ~= "" then
+            local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
+            local meuHrp = getHRP()
+            if alvo and alvo.Character and meuHrp then
+                local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
+                if alvoHrp then
+                    meuHrp.CFrame = alvoHrp.CFrame + Vector3.new(0, 2, 0)
+                    logarAcao("Teleporte", "Teleportado com sucesso para " .. JogadorSelecionadoNome)
+                end
+            else
+                logarAcao("Erro", "Incapaz de achar o ponto de teleporte do alvo.", 2)
+            end
+        else
+            logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
+        end
+    end
+})
+
+TabPlayers:CreateButton({
+    Name = "Dar Jumpscare (Susto Efêmero)",
+    Callback = function()
+        if JogadorSelecionadoNome ~= "" then
+            local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
+            local meuHrp = getHRP()
+            if alvo and alvo.Character and meuHrp then
+                local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
+                if alvoHrp then
+                    local posicaoAntesSusto = meuHrp.CFrame
+                    ativarFlyTemporario(meuHrp)
+                    
+                    -- Calcula a posição perfeitamente na frente do alvo, virado para ele
+                    meuHrp.CFrame = alvoHrp.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, math.pi, 0)
+                    logarAcao("BOO!", "Você assustou " .. JogadorSelecionadoNome .. "!", 1)
+                    
+                    task.wait(0.25) -- Tempo do susto na tela dele
+                    
+                    meuHrp.CFrame = posicaoAntesSusto
+                    task.wait(0.05)
+                    desativarFlyTemporario()
+                end
+            else
+                logarAcao("Erro", "Alvo inválido ou sem colisão no momento.", 2)
+            end
+        else
+            logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
+        end
+    end
+})
+
 -- ABA: VISUAL & RASTREIO
 TabVisual:CreateSection("ESP (Visuais)")
 TabVisual:CreateToggle({
@@ -697,6 +829,15 @@ task.spawn(function()
             end
             if LocalPlayer.CameraMaxZoomDistance < 100000 then
                 LocalPlayer.CameraMaxZoomDistance = 100000
+            end
+        end
+        -- Mantém o foco no spectate se o alvo se mover
+        if SpectateAtivo and JogadorSelecionadoNome ~= "" then
+            local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
+            if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
+                if Camera.CameraSubject ~= alvo.Character.Humanoid then
+                    Camera.CameraSubject = alvo.Character.Humanoid
+                end
             end
         end
     end
