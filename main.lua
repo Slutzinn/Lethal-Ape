@@ -43,6 +43,9 @@ local ESPJogadoresAtivo = false
 local ESPElevadorAtivo = false 
 local AntijumpscareAtivo = false
 
+-- Variável para guardar a posição da última morte
+local UltimaPosicaoMorte = nil
+
 local ArmazenamentoESP = {}
 local ArmazenamentoESPMonstros = {}
 local ArmazenamentoESPPortoes = {}
@@ -72,6 +75,21 @@ local function getHRP()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart", 5)
 end
+
+-- Monitoramento de Morte para Salvar Posição
+local function monitorarMorte(character)
+    local humanoid = character:WaitForChild("Humanoid", 10)
+    local hrp = character:WaitForChild("HumanoidRootPart", 10)
+    if humanoid and hrp then
+        humanoid.Died:Connect(function()
+            UltimaPosicaoMorte = hrp.CFrame
+            logarAcao("Sistema de Morte", "Posição da morte salva! Use a opção 'Reviver' para retornar.", 4)
+        end)
+    end
+end
+
+if LocalPlayer.Character then monitorarMorte(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(monitorarMorte)
 
 -- Envio Adaptativo de Mensagens
 local function enviarChat(mensagem)
@@ -519,9 +537,7 @@ for i = 1, 4 do
     TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
--- =============================================================================
--- ABA REVISADA: CONTROLE DO ELEVADOR (OPÇÕES DE SUBIR E DESCER SEPARADAS)
--- =============================================================================
+-- ABA: CONTROLE DO ELEVADOR
 TabElevador:CreateSection("Controle e Teleporte")
 TabElevador:CreateButton({
     Name = "Teleportar para o Elevador",
@@ -544,13 +560,11 @@ TabElevador:CreateButton({
     end
 })
 
--- BOTÕES DE COMANDO SEPARADOS E IDENTIFICADOS
 TabElevador:CreateButton({
     Name = "Subir (Cima)",
     Callback = function()
         local elevador = encontrarElevador()
         if elevador then
-            -- Procura primeiro pelo nome 'UButton' ou usa o GetChildren()[4] por garantia de fallback
             local uButton = elevador:FindFirstChild("UButton") or (elevador:GetChildren()[4])
             if uButton then
                 interagirComObjeto(uButton)
@@ -582,7 +596,58 @@ TabElevador:CreateButton({
     end
 })
 
--- ABA: UTILIDADES GERAIS
+-- =============================================================================
+-- ABA: UTILIDADES GERAIS (ATUALIZADA COM NOVAS OPÇÕES)
+-- =============================================================================
+TabGeral:CreateSection("Interações Especiais")
+
+-- NOVA OPÇÃO: PEGAR LANTERNA
+TabGeral:CreateButton({
+    Name = "Pegar Lanterna",
+    Callback = function()
+        local lightModel = workspace:FindFirstChild("Light")
+        if lightModel then
+            local prompt = lightModel:FindFirstChild("ProximityPrompt") or lightModel:FindFirstChildOfClass("ProximityPrompt", true)
+            if prompt then
+                local hrp = getHRP()
+                if hrp then
+                    -- Teleporta temporariamente bem perto para garantir o alcance do prompt
+                    local posOriginal = hrp.CFrame
+                    local parteAlvo = lightModel:IsA("BasePart") and lightModel or lightModel:FindFirstChildWhichIsA("BasePart", true)
+                    if parteAlvo then
+                        hrp.CFrame = parteAlvo.CFrame
+                        task.wait(0.1)
+                        fireproximityprompt(prompt)
+                        task.wait(0.1)
+                        hrp.CFrame = posOriginal
+                        logarAcao("Lanterna", "Lanterna coletada com sucesso!", 2)
+                    end
+                end
+            else
+                logarAcao("Erro", "ProximityPrompt da Lanterna não encontrado.", 2)
+            end
+        else
+            logarAcao("Aviso", "Objeto 'Light' não encontrado no workspace.", 2.5)
+        end
+    end
+})
+
+-- NOVA OPÇÃO: REVIVER (VOLTAR PARA A ÚLTIMA MORTE)
+TabGeral:CreateButton({
+    Name = "Reviver (Voltar Posição da Morte)",
+    Callback = function()
+        if UltimaPosicaoMorte then
+            local hrp = getHRP()
+            if hrp then
+                hrp.CFrame = UltimaPosicaoMorte
+                logarAcao("Teleporte", "Retornado com sucesso para o local da última morte!", 2)
+            end
+        else
+            logarAcao("Aviso", "Nenhuma morte registrada nesta sessão ainda.", 3)
+        end
+    end
+})
+
 TabGeral:CreateSection("Visualização e Ambiente")
 
 TabGeral:CreateToggle({
