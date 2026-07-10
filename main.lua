@@ -15,7 +15,7 @@ local Window = Rayfield:CreateWindow({
 
 local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
-local TabPlayers = Window:CreateTab("Controle de Jogadores", 4483362458) -- NOVA CATEGORIA
+local TabPlayers = Window:CreateTab("Controle de Jogadores", 4483362458)
 local TabVisual = Window:CreateTab("ESP (Visuais)", 4483362458)
 local TabPortoes = Window:CreateTab("Portões", 4483362458)
 local TabElevador = Window:CreateTab("Elevador", 4483362458) 
@@ -48,6 +48,7 @@ local AntijumpscareAtivo = false
 -- Variáveis de Controle de Jogadores Selecionados
 local JogadorSelecionadoNome = ""
 local DropdownJogadores = nil
+local ParagrafoPerfil = nil
 
 -- Variável para guardar a posição da última morte
 local UltimaPosicaoMorte = nil
@@ -298,13 +299,15 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- FUNÇÃO ATUALIZADORA DE LISTA PARA O DROPDOWN DE JOGADORES
+-- FUNÇÃO ATUALIZADORA DE LISTA COM NOME DE EXIBIÇÃO E USUÁRIO
 -- =============================================================================
 local function obterListaJogadores()
     local lista = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            table.insert(lista, p.Name)
+            -- Formato amigável: Nome de Exibição (@Usuario)
+            local formatoTexto = p.DisplayName .. " (@" .. p.Name .. ")"
+            table.insert(lista, formatoTexto)
         end
     end
     return lista
@@ -322,6 +325,9 @@ Players.PlayerRemoving:Connect(function(player)
         JogadorSelecionadoNome = ""
         SpectateAtivo = false
         Camera.CameraSubject = LocalPlayer.Character:WaitForChild("Humanoid")
+        if ParagrafoPerfil then
+            ParagrafoPerfil:Set({Title = "Nenhum Alvo Selecionado", Content = "Escolha um jogador acima."})
+        end
     end
     atualizarDropdownJogadores()
 end)
@@ -529,14 +535,14 @@ TabFarm:CreateParagraph({
 
 -- ABA: COLETAS MANUAIS
 TabManual:CreateSection("Farm Manual")
-TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMateriais("Gold") end })
-TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMateriais("Diamond") end })
-TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarColetaMateriais("Copper") end })
-TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMateriais("Emerald") end })
-TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMateriais("Meat") end })
+TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMaterials("Gold") end })
+TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMaterials("Diamond") end })
+TabManual:CreateButton({ Name = "Coletar Cobre", Callback = function() executarColetaMaterials("Copper") end })
+TabManual:CreateButton({ Name = "Coletar Esmeralda", Callback = function() executarColetaMaterials("Emerald") end })
+TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarColetaMaterials("Meat") end })
 
 -- =============================================================================
--- NOVA ABA: CONTROLE DE JOGADORES (SPECTATE, TELEPORT & JUMPSCARE)
+-- ABA: CONTROLE DE JOGADORES (FOTO DE PERFIL E APENAS DISPLAYNAME + USERNAME)
 -- =============================================================================
 TabPlayers:CreateSection("Alvos Disponíveis")
 
@@ -545,10 +551,34 @@ DropdownJogadores = TabPlayers:CreateDropdown({
     Options = obterListaJogadores(),
     CurrentOption = "",
     MultipleOptions = false,
-    Flag = "DropdownJogadoresServidor",
+    Flag = "DropdownJogadoresServidorV4",
     Callback = function(Option)
-        JogadorSelecionadoNome = type(Option) == "table" and Option[1] or Option
+        local selecao = type(Option) == "table" and Option[1] or Option
+        if selecao and selecao ~= "" then
+            -- Isola o @usuario de dentro dos parênteses
+            local usuarioTratado = string.match(selecao, "@([^)]+)")
+            if usuarioTratado then
+                JogadorSelecionadoNome = usuarioTratado
+                local alvoInstancia = Players:FindFirstChild(JogadorSelecionadoNome)
+                if alvoInstancia then
+                    -- rbxthumb para puxar a foto circular oficial do perfil
+                    local urlFotoPerfil = "rbxthumb://type=Avatar&id=" .. alvoInstancia.UserId .. "&w=420&h=420"
+                    
+                    ParagrafoPerfil:Set({
+                        Title = alvoInstancia.DisplayName,
+                        Content = "@" .. alvoInstancia.Name,
+                        Image = urlFotoPerfil
+                    })
+                end
+            end
+        end
     end,
+})
+
+ParagrafoPerfil = TabPlayers:CreateParagraph({
+    Title = "Nenhum Alvo Selecionado",
+    Content = "Escolha um jogador no menu acima para carregar a foto do perfil e o @username.",
+    Image = "rbxassetid://4483362458"
 })
 
 TabPlayers:CreateSection("Ações Interativas")
@@ -564,7 +594,7 @@ TabPlayers:CreateToggle({
                 local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
                 if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
                     Camera.CameraSubject = alvo.Character.Humanoid
-                    logarAcao("Spectate", "Espionando a visão de: " .. JogadorSelecionadoNome)
+                    logarAcao("Spectate", "Espionando a visão de: " .. alvo.DisplayName)
                 else
                     logarAcao("Erro", "Jogador não possui personagem ativo ou sumiu.", 2)
                 end
@@ -590,7 +620,7 @@ TabPlayers:CreateButton({
                 local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
                 if alvoHrp then
                     meuHrp.CFrame = alvoHrp.CFrame + Vector3.new(0, 2, 0)
-                    logarAcao("Teleporte", "Teleportado com sucesso para " .. JogadorSelecionadoNome)
+                    logarAcao("Teleporte", "Teleportado com sucesso para " .. alvo.DisplayName)
                 end
             else
                 logarAcao("Erro", "Incapaz de achar o ponto de teleporte do alvo.", 2)
@@ -615,9 +645,9 @@ TabPlayers:CreateButton({
                     
                     -- Calcula a posição perfeitamente na frente do alvo, virado para ele
                     meuHrp.CFrame = alvoHrp.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, math.pi, 0)
-                    logarAcao("BOO!", "Você assustou " .. JogadorSelecionadoNome .. "!", 1)
+                    logarAcao("BOO!", "Você assustou " .. alvo.DisplayName .. "!", 1)
                     
-                    task.wait(0.25) -- Tempo do susto na tela dele
+                    task.wait(0.25)
                     
                     meuHrp.CFrame = posicaoAntesSusto
                     task.wait(0.05)
