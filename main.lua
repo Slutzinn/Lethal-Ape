@@ -1,18 +1,26 @@
+-- Cache de Serviços Globais (Melhor performance de memória)
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local TextChatService = game:GetService("TextChatService")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Inicialização Segura da UI Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Lethal Ape",
-    LoadingTitle = "Carregando",
+    LoadingTitle = "Carregando Lethal Ape",
     LoadingSubtitle = "Por favor, aguarde...",
-    ConfigurationSaving = {
-        Enabled = false
-    }
+    ConfigurationSaving = { Enabled = false }
 })
 
--- =============================================================================
--- CATEGORIAS E SEÇÕES TOTALMENTE ORGANIZADAS E DIDÁTICAS
--- =============================================================================
-
+-- Categorias e Seções Organizadas
 local TabFarm = Window:CreateTab("Farm Automático", 4483362458)
 local TabManual = Window:CreateTab("Farm Manual", 4483362458)
 local TabPlayers = Window:CreateTab("Controle de Jogadores", 4483362458)
@@ -21,20 +29,11 @@ local TabPortoes = Window:CreateTab("Portões", 4483362458)
 local TabElevador = Window:CreateTab("Elevador", 4483362458) 
 local TabGeral = Window:CreateTab("Geral", 4483362458)
 local TabDancas = Window:CreateTab("Emotes", 4483362458)
+local TabChaos = Window:CreateTab("Troll", 4483362458)
 
-local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-local TextChatService = game:GetService("TextChatService")
-local UserInputService = game:GetService("UserInputService")
-local TeleportService = game:GetService("TeleportService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- Estados Globais de Funcionamento
+-- Estados Globais (Booleans estruturados)
 local AutoFarmAtivo = false
 local AutoHopFarmAtivo = false
-local ModoRapidoAtivo = true 
 local FullbrightAtivo = false
 local LoopColorirAtivo = false
 local TerceiraPessoaAtiva = false 
@@ -47,12 +46,14 @@ local ESPJogadoresAtivo = false
 local ESPElevadorAtivo = false 
 local AntijumpscareAtivo = false
 
--- Variáveis de Controle de Jogadores Selecionados
+local ChaosPortasAtivo = false
+local ChaosElevadorAtivo = false
+local ChaosJumpscareAtivo = false
+
+-- Variáveis de Controle e Cache Dinâmico
 local JogadorSelecionadoNome = ""
 local DropdownJogadores = nil
 local ParagrafoPerfil = nil
-
--- Variável para guardar a posição da última morte
 local UltimaPosicaoMorte = nil
 
 local ArmazenamentoESP = {}
@@ -61,7 +62,9 @@ local ArmazenamentoESPPortoes = {}
 local ArmazenamentoESPJogadores = {}
 local ArmazenamentoESPElevador = {} 
 
--- Filtro Rígido de Validação de Itens da Mochila
+local flyVelocity, flyGyro
+
+-- Filtro Rígido de Itens
 local mineriosPermitidos = { 
     ["gold"] = true, 
     ["diamond"] = true, 
@@ -70,32 +73,32 @@ local mineriosPermitidos = {
     ["meat"] = true
 }
 
--- Central de Warnings e Notificações Visuais
+-- Central de Warnings Visuais
 local function logarAcao(titulo, texto, duracao)
     Rayfield:Notify({
         Title = titulo,
         Content = texto,
-        Duration = duracao or 3.0,
+        Duration = duracao or 2.5,
         Image = 4483362458,
     })
 end
 
+-- Obtenção Rápida e Segura do HumanoidRootPart
 local function getHRP()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    return char:WaitForChild("HumanoidRootPart", 5)
+    return char and char:WaitForChild("HumanoidRootPart", 5)
 end
 
--- Função para trocar de servidor de forma segura (Server Hop)
+-- Server Hop Comum Seguro
 local function pularServidor()
-    logarAcao("AutoHop", "Buscando um novo servidor público...", 5)
-    task.wait(1)
+    logarAcao("AutoHop", "Buscando um novo servidor público...", 4)
+    task.wait(0.5)
     pcall(function()
-        local tps = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"))
+        local dadosBrutos = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100")
+        local tps = HttpService:JSONDecode(dadosBrutos)
         for _, server in ipairs(tps.data) do
             if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                if writefile then
-                    writefile("LethalApe_AutoHop.txt", "true")
-                end
+                if writefile then pcall(function() writefile("LethalApe_AutoHop.txt", "true") end) end
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
                 break
             end
@@ -103,14 +106,50 @@ local function pularServidor()
     end)
 end
 
--- Monitoramento de Morte para Salvar Posição
+-- Varredura Instantânea de Servidor Vazio (Otimização Máxima)
+local function criarServidorPrivado()
+    logarAcao("Servidor Privado", "Varredura instantânea de servidores vazios...", 2)
+    task.wait(0.1)
+    
+    local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local servidorAlvoId = nil
+    
+    pcall(function()
+        local dadosBrutos = game:HttpGet(url)
+        local dadosJson = HttpService:JSONDecode(dadosBrutos)
+        
+        if dadosJson and dadosJson.data then
+            for _, server in ipairs(dadosJson.data) do
+                if server.id ~= game.JobId and server.playing < server.maxPlayers then
+                    -- Prioridade máxima: servidor com 0 pessoas. Segunda opção: 1 pessoa.
+                    if server.playing == 0 then
+                        servidorAlvoId = server.id
+                        break
+                    elseif server.playing == 1 and not servidorAlvoId then
+                        servidorAlvoId = server.id
+                    end
+                end
+            end
+        end
+    end)
+    
+    if servidorAlvoId then
+        logarAcao("Servidor Privado", "Iniciando teleporte imediato!", 2)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, servidorAlvoId, LocalPlayer)
+    else
+        logarAcao("Aviso", "Nenhum servidor isolado na primeira página. Tentando Server Hop...", 3)
+        pularServidor()
+    end
+end
+
+-- Monitoramento de Morte Estruturado
 local function monitorarMorte(character)
     local humanoid = character:WaitForChild("Humanoid", 10)
     local hrp = character:WaitForChild("HumanoidRootPart", 10)
     if humanoid and hrp then
         humanoid.Died:Connect(function()
             UltimaPosicaoMorte = hrp.CFrame
-            logarAcao("Sistema de Morte", "Posição da morte salva! Use a opção 'Reviver' para retornar.", 4)
+            logarAcao("Sistema de Morte", "Posição salva! Use 'Reviver' para retornar.", 4)
         end)
     end
 end
@@ -130,11 +169,7 @@ local function enviarChat(mensagem)
     end)
 end
 
--- =============================================================================
--- SISTEMA DE VOO AUTOMÁTICO AUXILIAR
--- =============================================================================
-local flyVelocity, flyGyro
-
+-- Voo Auxiliar Sem Lag
 local function ativarFlyTemporario(rootPart)
     if not rootPart then return end
     if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
@@ -156,7 +191,7 @@ local function desativarFlyTemporario()
     if flyGyro then pcall(function() flyGyro:Destroy() end); flyGyro = nil end
 end
 
--- Interação imediata com click ou prompts
+-- Ativador de Prompts Direto
 local function interagirComObjeto(instancia)
     if not instancia then return end
     local prompt = instancia:IsA("ProximityPrompt") and instancia or instancia:FindFirstChildOfClass("ProximityPrompt", true)
@@ -175,11 +210,9 @@ local function encontrarReciclador()
     return nil, nil
 end
 
--- LOCALIZAÇÃO DO ELEVADOR
 local function encontrarElevador()
-    if workspace:FindFirstChild("Mapa") and workspace.Mapa:FindFirstChild("Elevador") then
-        return workspace.Mapa.Elevador
-    end
+    local mapaElevador = workspace:FindFirstChild("Mapa") and workspace.Mapa:FindFirstChild("Elevador")
+    if mapaElevador then return mapaElevador end
     return workspace:FindFirstChild("Elevador") or workspace:FindFirstChild("elevator")
 end
 
@@ -187,15 +220,13 @@ local function itemEstaAtivoNoMundo(objeto)
     if not objeto or not objeto.Parent then return false end
     local parte = objeto:IsA("BasePart") and objeto or objeto:FindFirstChildWhichIsA("BasePart", true)
     if not parte then return false end
-    if parte.Transparency >= 0.9 and parte.CanCollide == false and parte.CanTouch == false then
+    if parte.Transparency >= 0.9 and not parte.CanCollide and not parte.CanTouch then
         return false
     end
     return true
 end
 
--- =============================================================================
--- MECANISMO DE COLETAS COM PRECISÃO ULTRA-RÁPIDA (COM PROTEÇÃO ANTI-VOID)
--- =============================================================================
+-- Coleta Otimizada por Vetores (Anti-Void)
 local function executarColetaMateriais(nomeItem)
     local hrp = getHRP()
     if not hrp then return end
@@ -211,43 +242,38 @@ local function executarColetaMateriais(nomeItem)
 
     if #alvos == 0 then return end
     
-    logarAcao("Farm", "Buscando itens tipo: [" .. nomeItem .. "].", 1.5)
-    
-    -- Salva a posição original segura antes do teleporte
     local posicaoAnteriorSegura = hrp.CFrame
-    
     ativarFlyTemporario(hrp)
 
     for _, obj in ipairs(alvos) do
         if itemEstaAtivoNoMundo(obj) then
             local parte = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
             if parte then
-                -- Teleporta um pouco acima do item e força estabilização do Fly
                 hrp.CFrame = parte.CFrame + Vector3.new(0, 2, 0)
                 if flyVelocity then flyVelocity.Velocity = Vector3.new(0, 0, 0) end
-                task.wait(0.05)
+                task.wait(0.02)
 
                 local tentatives = 0
                 repeat
                     interagirComObjeto(obj)
-                    task.wait(0.03)
+                    task.wait(0.02)
                     tentatives = tentatives + 1
-                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentatives > 12
+                until not obj or not obj.Parent or not itemEstaAtivoNoMundo(obj) or tentatives > 8
             end
         end
     end
     
-    -- Teleporta forçadamente de volta para a posição segura antes de desligar o fly
     hrp.CFrame = posicaoAnteriorSegura
-    task.wait(0.05)
+    task.wait(0.02)
     desativarFlyTemporario()
 end
 
+-- Fluxo de Venda Rápido
 local function acionarFluxoVendas()
     local hrp = getHRP()
     local char = LocalPlayer.Character
     local mochila = LocalPlayer:FindFirstChild("Backpack")
-    if not char or not mochila then return end
+    if not char or not mochila or not hrp then return end
 
     local reciclador, botaoVender = encontrarReciclador()
     if not botaoVender then return end
@@ -262,78 +288,142 @@ local function acionarFluxoVendas()
 
     if itensParaVender == 0 then return end
 
-    logarAcao("Venda", "Mochila carregada! Teleportando para o Reciclador.", 2)
     local posicaoAntesVenda = hrp.CFrame
-
     local parteAlvo = botaoVender:IsA("BasePart") and botaoVender or botaoVender:FindFirstChildWhichIsA("BasePart", true)
+    
     if parteAlvo then
         ativarFlyTemporario(hrp)
         hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 3, 0)
-        task.wait(0.3)
+        task.wait(0.2)
     end
 
     ferramentas = mochila:GetChildren()
     for _, item in ipairs(ferramentas) do
         if item:IsA("Tool") and mineriosPermitidos[string.lower(item.Name)] then
             item.Parent = char
-            task.wait(0.02)
+            task.wait(0.01)
          
             local tentatives = 0
             repeat
                 interagirComObjeto(botaoVender)
-                task.wait(0.04)
+                task.wait(0.02)
                 tentatives = tentatives + 1
-            until item.Parent ~= char or not item or tentatives > 10
+            until item.Parent ~= char or not item or tentatives > 6
         end
     end
     
     hrp.CFrame = posicaoAntesVenda
-    task.wait(0.05)
+    task.wait(0.02)
     desativarFlyTemporario()
-    logarAcao("Venda", "Venda concluída com sucesso!", 1.5)
+    logarAcao("Venda", "Mochila limpa e processada!", 1.5)
 end
 
--- Loop Unificado de Farm Inteligente
+-- Loop de Farm Unificado Anti-Lag
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.4)
         if AutoFarmAtivo or AutoHopFarmAtivo then
             pcall(function()
-                local posAntesDoCiclo = getHRP().CFrame
-                
-                executarColetaMateriais("Gold")
-                executarColetaMateriais("Diamond")
-                executarColetaMateriais("Copper")
-                executarColetaMateriais("Emerald")
-                executarColetaMateriais("Meat")
-                
-                task.wait(0.2)
-                acionarFluxoVendas()
-                
-                if AutoFarmAtivo or AutoHopFarmAtivo then
-                    local hrpAtual = getHRP()
-                    if hrpAtual then hrpAtual.CFrame = posAntesDoCiclo end
-                end
+                local hrp = getHRP()
+                if hrp then
+                    local posAntesDoCiclo = hrp.CFrame
+                    
+                    executarColetaMateriais("Gold")
+                    executarColetaMateriais("Diamond")
+                    executarColetaMateriais("Copper")
+                    executarColetaMateriais("Emerald")
+                    executarColetaMateriais("Meat")
+                    
+                    task.wait(0.1)
+                    acionarFluxoVendas()
+                    
+                    if AutoFarmAtivo or AutoHopFarmAtivo then
+                        local hrpAtual = getHRP()
+                        if hrpAtual then hrpAtual.CFrame = posAntesDoCiclo end
+                    end
 
-                -- Se a modalidade for AutoHop, ele muda de server após limpar o mapa e vender
-                if AutoHopFarmAtivo then
-                    if delfile then pcall(function() delfile("LethalApe_AutoHop.txt") end) end
-                    pularServidor()
+                    if AutoHopFarmAtivo then
+                        if delfile then pcall(function() pcall(delfile, "LethalApe_AutoHop.txt") end) end
+                        pularServidor()
+                    end
                 end
             end)
         end
     end
 end)
 
--- =============================================================================
--- FUNÇÃO ATUALIZADORA DE LISTA COM NOME DE EXIBIÇÃO E USUÁRIO
--- =============================================================================
+-- Loops de Caos (Com micro-delays para não crashar)
+task.spawn(function()
+    while true do
+        task.wait(0.08)
+        if ChaosPortasAtivo then
+            pcall(function()
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj.Name == "ButtonDoor" then
+                        local b = obj:FindFirstChild("Button")
+                        if b then interagirComObjeto(b) end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if ChaosElevadorAtivo then
+            pcall(function()
+                local elevador = encontrarElevador()
+                if elevador then
+                    local uButton = elevador:FindFirstChild("UButton") or (elevador:GetChildren()[4])
+                    local dButton = elevador:FindFirstChild("DButton")
+                    
+                    if uButton then interagirComObjeto(uButton) end
+                    task.wait(0.2)
+                    if dButton then interagirComObjeto(dButton) end
+                    task.wait(0.2)
+                end
+            end)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if ChaosJumpscareAtivo then
+            for _, alvo in ipairs(Players:GetPlayers()) do
+                if alvo ~= LocalPlayer and alvo.Character and ChaosJumpscareAtivo then
+                    pcall(function()
+                        local meuHrp = getHRP()
+                        local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
+                        if meuHrp and alvoHrp then
+                            local posOriginal = meuHrp.CFrame
+                            ativarFlyTemporario(meuHrp)
+                            
+                            meuHrp.CFrame = alvoHrp.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, math.pi, 0)
+                            task.wait(0.1)
+                            
+                            meuHrp.CFrame = posOriginal
+                            desativarFlyTemporario()
+                        end
+                    end)
+                    task.wait(0.15)
+                end
+            end
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Manipulação Dinâmica de Dropdowns de Jogadores
 local function obterListaJogadores()
     local lista = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            local formatoTexto = p.DisplayName .. " (@" .. p.Name .. ")"
-            table.insert(lista, formatoTexto)
+            table.insert(lista, p.DisplayName .. " (@" .. p.Name .. ")")
         end
     end
     return lista
@@ -350,7 +440,10 @@ Players.PlayerRemoving:Connect(function(player)
     if player.Name == JogadorSelecionadoNome then
         JogadorSelecionadoNome = ""
         SpectateAtivo = false
-        Camera.CameraSubject = LocalPlayer.Character:WaitForChild("Humanoid")
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = char.Humanoid
+        end
         if ParagrafoPerfil then
             ParagrafoPerfil:Set({Title = "Nenhum Alvo Selecionado", Content = "Escolha um jogador acima."})
         end
@@ -358,26 +451,18 @@ Players.PlayerRemoving:Connect(function(player)
     atualizarDropdownJogadores()
 end)
 
--- =============================================================================
--- SISTEMAS DIVERSOS DE RASTREAMENTO VISUAL (ESP)
--- =============================================================================
-local function limparESP()
-    for _, esp in ipairs(ArmazenamentoESP) do if esp then pcall(function() esp:Destroy() end) end end
-    ArmazenamentoESP = {}
+-- Sistema de Gerenciamento de Memória Visual (ESP Limpo Sem Latência)
+local function limparCacheESP(tabela)
+    for _, esp in ipairs(tabela) do
+        if esp then pcall(function() esp:Destroy() end) end
+    end
+    return {}
 end
 
 local function atualizarESP()
-    if not ESPAtivo then limparESP() return end
+    if not ESPAtivo then ArmazenamentoESP = limparCacheESP(ArmazenamentoESP) return end
     local scraps = workspace:FindFirstChild("Scraps")
     if not scraps then return end
-
-    for i = #ArmazenamentoESP, 1, -1 do
-        local h = ArmazenamentoESP[i]
-        if not h or not h.Parent or not h.Adornee or not itemEstaAtivoNoMundo(h.Adornee) then
-            pcall(function() h:Destroy() end)
-            table.remove(ArmazenamentoESP, i)
-        end
-    end
 
     for _, obj in ipairs(scraps:GetChildren()) do
         if itemEstaAtivoNoMundo(obj) and not obj:FindFirstChild("Nunes_ESP") then
@@ -396,7 +481,6 @@ local function atualizarESP()
                 highlight.Name = "Nunes_ESP"
                 highlight.FillColor = corMaterial
                 highlight.FillTransparency = 0.6
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Adornee = obj
                 highlight.Parent = obj
@@ -406,13 +490,8 @@ local function atualizarESP()
     end
 end
 
-local function limparESPJogadores()
-    for _, esp in ipairs(ArmazenamentoESPJogadores) do if esp then pcall(function() esp:Destroy() end) end end
-    ArmazenamentoESPJogadores = {}
-end
-
 local function atualizarESPJogadores()
-    limparESPJogadores()
+    ArmazenamentoESPJogadores = limparCacheESP(ArmazenamentoESPJogadores)
     if not ESPJogadoresAtivo then return end
     for _, jogador in ipairs(Players:GetPlayers()) do
         if jogador ~= LocalPlayer and jogador.Character then
@@ -429,25 +508,19 @@ local function atualizarESPJogadores()
 end
 
 local function obterInstanciaMonstro(nome)
-    local monstrosDiretos = {
+    local directMonsters = {
         Dus = workspace:FindFirstChild("DusMonster") and workspace.DusMonster:FindFirstChild("Dus"),
         Gus = workspace:FindFirstChild("GusMonster") and workspace.GusMonster:FindFirstChild("Gus"),
         Kus = workspace:FindFirstChild("KusMonster") and workspace.KusMonster:FindFirstChild("Kus"),
         Lost = workspace:FindFirstChild("LostMonster") and workspace.LostMonster:FindFirstChild("Lost")
     }
-    if monstrosDiretos[nome] then return monstrosDiretos[nome] end
+    if directMonsters[nome] then return directMonsters[nome] end
     local pastaSandman = workspace:FindFirstChild("Sandman/Ashy")
-    if pastaSandman then return pastaSandman:FindFirstChild(nome) end
-    return workspace:FindFirstChild(nome)
-end
-
-local function limparESPMonstros()
-    for _, esp in ipairs(ArmazenamentoESPMonstros) do if esp then pcall(function() esp:Destroy() end) end end
-    ArmazenamentoESPMonstros = {}
+    return pastaSandman and pastaSandman:FindFirstChild(nome) or workspace:FindFirstChild(nome)
 end
 
 local function atualizarESPMonstros()
-    limparESPMonstros()
+    ArmazenamentoESPMonstros = limparCacheESP(ArmazenamentoESPMonstros)
     if not ESPMonstrosAtivo then return end
     local listaNomes = {"Dus", "Gus", "Kus", "Lost", "Ashy", "Lurker", "SandMan", "Scar"}
 
@@ -466,13 +539,8 @@ local function atualizarESPMonstros()
     end
 end
 
-local function limparESPPortoes()
-    for _, esp in ipairs(ArmazenamentoESPPortoes) do if esp then pcall(function() esp:Destroy() end) end end
-    ArmazenamentoESPPortoes = {}
-end
-
 local function atualizarESPPortoes()
-    limparESPPortoes()
+    ArmazenamentoESPPortoes = limparCacheESP(ArmazenamentoESPPortoes)
     if not ESPPortoesAtivo then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "ButtonDoor" then
@@ -491,13 +559,8 @@ local function atualizarESPPortoes()
     end
 end
 
-local function limparESPElevador()
-    for _, esp in ipairs(ArmazenamentoESPElevador) do if esp then pcall(function() esp:Destroy() end) end end
-    ArmazenamentoESPElevador = {}
-end
-
 local function atualizarESPElevador()
-    limparESPElevador()
+    ArmazenamentoESPElevador = limparCacheESP(ArmazenamentoESPElevador)
     if not ESPElevadorAtivo then return end
     local elevador = encontrarElevador()
     if elevador then
@@ -513,8 +576,10 @@ local function atualizarESPElevador()
     end
 end
 
+-- Thread Concentrada Visual (Anti Frame-Drop)
 task.spawn(function()
-    while task.wait(0.4) do 
+    while true do 
+        task.wait(0.5)
         if ESPJogadoresAtivo then pcall(atualizarESPJogadores) end
         if ESPAtivo then pcall(atualizarESP) end
         if ESPMonstrosAtivo then pcall(atualizarESPMonstros) end
@@ -524,35 +589,30 @@ task.spawn(function()
 end)
 
 local function acionarPortaoEspecifico(idPortao)
-    local executado = false
     local contador = 1
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "ButtonDoor" then
             if contador == idPortao then
                 local button = obj:FindFirstChild("Button")
-                if button then interagirComObjeto(button); executado = true end
+                if button then interagirComObjeto(button) end
                 break
             end
             contador = contador + 1
         end
     end
-    if executado then logarAcao("Portão", "Sinal enviado para o Portão: " .. idPortao) end
 end
 
 -- =============================================================================
--- MONTAGEM DOS COMPONENTES DA INTERFACE DO USUÁRIO
+-- MONTAGEM COMPACTA DA INTERFACE
 -- =============================================================================
 
--- ABA: AUTO FARM SUPREMO
+-- ABA: FARM AUTOMÁTICO
 TabFarm:CreateSection("Automação")
 TabFarm:CreateToggle({
     Name = "Farm Automático (Normal)",
     CurrentValue = false,
     Flag = "ToggleAutoFarmSupremo",
-    Callback = function(Value)
-        AutoFarmAtivo = Value
-        logarAcao("Sistema", AutoFarmAtivo and "Farm Automático ATIVADO." or "Farm Automático DESATIVADO.")
-    end
+    Callback = function(Value) AutoFarmAtivo = Value end
 })
 
 local ToggleAutoHop = TabFarm:CreateToggle({
@@ -561,22 +621,25 @@ local ToggleAutoHop = TabFarm:CreateToggle({
     Flag = "ToggleAutoHopFarm",
     Callback = function(Value)
         AutoHopFarmAtivo = Value
-        if AutoHopFarmAtivo then
-            if writefile then writefile("LethalApe_AutoHop.txt", "true") end
-            logarAcao("AutoHop", "Farm com rotação de servidores ATIVADO!")
-        else
-            if delfile then pcall(function() delfile("LethalApe_AutoHop.txt") end) end
-            logarAcao("AutoHop", "Farm com rotação de servidores DESATIVADO.")
+        if AutoHopFarmAtivo and writefile then
+            pcall(function() writefile("LethalApe_AutoHop.txt", "true") end)
+        elseif delfile then
+            pcall(function() delfile("LethalApe_AutoHop.txt") end)
         end
     end
 })
 
-TabFarm:CreateParagraph({
-    Title = "Informação",
-    Content = "O AutoHopFarm limpa o mapa atual, vende os itens no reciclador e te move para outro servidor público automaticamente."
+TabFarm:CreateButton({
+    Name = "Criar Servidor Privado (Vazio)",
+    Callback = criarServidorPrivado
 })
 
--- ABA: COLETAS MANUAIS
+TabFarm:CreateParagraph({
+    Title = "Informação do Servidor Privado",
+    Content = "Faz uma única busca ultra-rápida de 100 servidores direto da API do Roblox filtrando apenas instâncias vazias para seu farm solo."
+})
+
+-- ABA: FARM MANUAL
 TabManual:CreateSection("Farm Manual")
 TabManual:CreateButton({ Name = "Coletar Ouro", Callback = function() executarColetaMateriais("Gold") end })
 TabManual:CreateButton({ Name = "Coletar Diamante", Callback = function() executarColetaMateriais("Diamond") end })
@@ -586,7 +649,6 @@ TabManual:CreateButton({ Name = "Coletar Carne", Callback = function() executarC
 
 -- ABA: CONTROLE DE JOGADORES
 TabPlayers:CreateSection("Alvos Disponíveis")
-
 DropdownJogadores = TabPlayers:CreateDropdown({
     Name = "Selecionar Jogador",
     Options = obterListaJogadores(),
@@ -600,13 +662,11 @@ DropdownJogadores = TabPlayers:CreateDropdown({
             if usuarioTratado then
                 JogadorSelecionadoNome = usuarioTratado
                 local alvoInstancia = Players:FindFirstChild(JogadorSelecionadoNome)
-                if alvoInstancia then
-                    local urlFotoPerfil = "rbxthumb://type=Avatar&id=" .. alvoInstancia.UserId .. "&w=420&h=420"
-                    
+                if alvoInstancia and ParagrafoPerfil then
                     ParagrafoPerfil:Set({
                         Title = alvoInstancia.DisplayName,
                         Content = "@" .. alvoInstancia.Name,
-                        Image = urlFotoPerfil
+                        Image = "rbxthumb://type=Avatar&id=" .. alvoInstancia.UserId .. "&w=420&h=420"
                     })
                 end
             end
@@ -616,35 +676,24 @@ DropdownJogadores = TabPlayers:CreateDropdown({
 
 ParagrafoPerfil = TabPlayers:CreateParagraph({
     Title = "Nenhum Alvo Selecionado",
-    Content = "Escolha um jogador no menu acima para carregar a foto do perfil e o @username.",
+    Content = "Escolha um jogador no menu acima.",
     Image = "rbxassetid://4483362458"
 })
 
 TabPlayers:CreateSection("Ações Interativas")
-
 TabPlayers:CreateToggle({
     Name = "Ver Jogador (Spectate)",
     CurrentValue = false,
     Flag = "ToggleSpectateJogador",
     Callback = function(Value)
         SpectateAtivo = Value
-        if SpectateAtivo then
-            if JogadorSelecionadoNome ~= "" then
-                local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
-                if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
-                    Camera.CameraSubject = alvo.Character.Humanoid
-                    logarAcao("Spectate", "Espionando a visão de: " .. alvo.DisplayName)
-                else
-                    logarAcao("Erro", "Jogador não possui personagem ativo ou sumiu.", 2)
-                end
-            else
-                logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
+        if SpectateAtivo and JogadorSelecionadoNome ~= "" then
+            local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
+            if alvo and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
+                Camera.CameraSubject = alvo.Character.Humanoid
             end
-        else
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                Camera.CameraSubject = LocalPlayer.Character.Humanoid
-                logarAcao("Spectate", "Visão retornada ao seu personagem.")
-            end
+        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character.Humanoid
         end
     end
 })
@@ -657,15 +706,8 @@ TabPlayers:CreateButton({
             local meuHrp = getHRP()
             if alvo and alvo.Character and meuHrp then
                 local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
-                if alvoHrp then
-                    meuHrp.CFrame = alvoHrp.CFrame + Vector3.new(0, 2, 0)
-                    logarAcao("Teleporte", "Teleportado com sucesso para " .. alvo.DisplayName)
-                end
-            else
-                logarAcao("Erro", "Incapaz de achar o point de teleporte do alvo.", 2)
+                if alvoHrp then meuHrp.CFrame = alvoHrp.CFrame + Vector3.new(0, 2, 0) end
             end
-        else
-            logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
         end
     end
 })
@@ -679,61 +721,28 @@ TabPlayers:CreateButton({
             if alvo and alvo.Character and meuHrp then
                 local alvoHrp = alvo.Character:FindFirstChild("HumanoidRootPart")
                 if alvoHrp then
-                    local posicaoAntesSusto = meuHrp.CFrame
+                    local posAntes = meuHrp.CFrame
                     ativarFlyTemporario(meuHrp)
-                    
                     meuHrp.CFrame = alvoHrp.CFrame * CFrame.new(0, 0, -2.5) * CFrame.Angles(0, math.pi, 0)
-                    logarAcao("BOO!", "Você assustou " .. alvo.DisplayName .. "!", 1)
-                    
-                    task.wait(0.25)
-                    
-                    meuHrp.CFrame = posicaoAntesSusto
-                    task.wait(0.05)
+                    task.wait(0.2)
+                    meuHrp.CFrame = posAntes
+                    task.wait(0.02)
                     desativarFlyTemporario()
                 end
-            else
-                logarAcao("Erro", "Alvo inválido ou sem colisão no momento.", 2)
             end
-        else
-            logarAcao("Aviso", "Selecione um jogador na lista primeiro!", 2)
         end
     end
 })
 
--- ABA: VISUAL & RASTREIO
+-- ABA: VISUAIS
 TabVisual:CreateSection("ESP (Visuais)")
-TabVisual:CreateToggle({
-    Name = "ESP de Itens",
-    CurrentValue = false,
-    Flag = "ToggleESPMineriosNunes",
-    Callback = function(Value) ESPAtivo = Value; if Value then atualizarESP() else limparESP() end end
-})
-TabVisual:CreateToggle({
-    Name = "ESP de Jogadores",
-    CurrentValue = false,
-    Flag = "ToggleESPJogadoresNunes",
-    Callback = function(Value) ESPJogadoresAtivo = Value; if Value then atualizarESPJogadores() else limparESPJogadores() end end
-})
-TabVisual:CreateToggle({
-    Name = "ESP de Portões",
-    CurrentValue = false,
-    Flag = "ToggleESPPortoesNunes",
-    Callback = function(Value) ESPPortoesAtivo = Value; if Value then atualizarESPPortoes() else limparESPPortoes() end end
-})
-TabVisual:CreateToggle({
-    Name = "ESP de Monstros",
-    CurrentValue = false,
-    Flag = "ToggleESPMonstrosNunes",
-    Callback = function(Value) ESPMonstrosAtivo = Value; if Value then atualizarESPMonstros() else limparESPMonstros() end end
-})
-TabVisual:CreateToggle({
-    Name = "ESP do Elevador",
-    CurrentValue = false,
-    Flag = "ToggleESPElevadorNunes",
-    Callback = function(Value) ESPElevadorAtivo = Value; if Value then atualizarESPElevador() else limparESPElevador() end end
-})
+TabVisual:CreateToggle({ Name = "ESP de Itens", CurrentValue = false, Flag = "ToggleESPMineriosNunes", Callback = function(V) ESPAtivo = V; atualizarESP() end })
+TabVisual:CreateToggle({ Name = "ESP de Jogadores", CurrentValue = false, Flag = "ToggleESPJogadoresNunes", Callback = function(V) ESPJogadoresAtivo = V; atualizarESPJogadores() end })
+TabVisual:CreateToggle({ Name = "ESP de Portões", CurrentValue = false, Flag = "ToggleESPPortoesNunes", Callback = function(V) ESPPortoesAtivo = V; atualizarESPPortoes() end })
+TabVisual:CreateToggle({ Name = "ESP de Monstros", CurrentValue = false, Flag = "ToggleESPMonstrosNunes", Callback = function(V) ESPMonstrosAtivo = V; atualizarESPMonstros() end })
+TabVisual:CreateToggle({ Name = "ESP do Elevador", CurrentValue = false, Flag = "ToggleESPElevadorNunes", Callback = function(V) ESPElevadorAtivo = V; atualizarESPElevador() end })
 
--- ABA: CONTROLE DE PORTÕES
+-- ABA: PORTÕES
 TabPortoes:CreateSection("Portões")
 TabPortoes:CreateButton({
     Name = "Abrir/Fechar Todos os Portões",
@@ -750,7 +759,7 @@ for i = 1, 4 do
     TabPortoes:CreateButton({ Name = "Abrir/Fechar Portão " .. i, Callback = function() acionarPortaoEspecifico(i) end })
 end
 
--- ABA: CONTROLE DO ELEVADOR
+-- ABA: ELEVADOR
 TabElevador:CreateSection("Controle e Teleporte")
 TabElevador:CreateButton({
     Name = "Teleportar para o Elevador",
@@ -760,86 +769,52 @@ TabElevador:CreateButton({
         if hrp and elevador then
             local alvo = elevador:FindFirstChild("BaseDoElevador") or elevador:FindFirstChild("DButton") or elevador
             local parteAlvo = alvo:IsA("BasePart") and alvo or alvo:FindFirstChildWhichIsA("BasePart", true)
-            
-            if parteAlvo then
-                hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 4, 0)
-                logarAcao("Elevador", "Teleportado para o Elevador!", 1.5)
-            else
-                logarAcao("Erro", "Não foi possível calcular a posição de teleporte.", 2)
-            end
-        else
-            logarAcao("Aviso", "Elevador não encontrado no diretório correto.", 2.5)
+            if parteAlvo then hrp.CFrame = parteAlvo.CFrame + Vector3.new(0, 4, 0) end
         end
     end
 })
-
 TabElevador:CreateButton({
     Name = "Subir (Cima)",
     Callback = function()
         local elevador = encontrarElevador()
         if elevador then
             local uButton = elevador:FindFirstChild("UButton") or (elevador:GetChildren()[4])
-            if uButton then
-                interagirComObjeto(uButton)
-                logarAcao("Elevador", "Comando enviado para Subir!", 1.5)
-            else
-                logarAcao("Erro", "Botão de Subir (UButton) não encontrado.", 2)
-            end
-        else
-            logarAcao("Aviso", "Elevador não encontrado.", 2)
+            if uButton then interagirComObjeto(uButton) end
         end
     end
 })
-
 TabElevador:CreateButton({
     Name = "Descer (Baixo)",
     Callback = function()
         local elevador = encontrarElevador()
         if elevador then
             local dButton = elevador:FindFirstChild("DButton")
-            if dButton then
-                interagirComObjeto(dButton)
-                logarAcao("Elevador", "Comando enviado para Descer!", 1.5)
-            else
-                logarAcao("Erro", "Botão de Descer (DButton) não encontrado.", 2)
-            end
-        else
-            logarAcao("Aviso", "Elevador não encontrado.", 2)
+            if dButton then interagirComObjeto(dButton) end
         end
     end
 })
 
 -- ABA: UTILIDADES GERAIS
 TabGeral:CreateSection("Interações Especiais")
-
 TabGeral:CreateButton({
     Name = "Pegar Lanterna",
     Callback = function()
         local lightModel = workspace:FindFirstChild("Light")
-        if lightModel then
-            local prompt = lightModel:FindFirstChild("ProximityPrompt") or lightModel:FindFirstChildOfClass("ProximityPrompt", true)
-            if prompt then
-                local hrp = getHRP()
-                if hrp then
-                    local posOriginal = hrp.CFrame
-                    local parteAlvo = lightModel:IsA("BasePart") and lightModel or lightModel:FindFirstChildWhichIsA("BasePart", true)
-                    if parteAlvo then
-                        ativarFlyTemporario(hrp)
-                        hrp.CFrame = parteAlvo.CFrame
-                        task.wait(0.1)
-                        fireproximityprompt(prompt)
-                        task.wait(0.1)
-                        hrp.CFrame = posOriginal
-                        task.wait(0.05)
-                        desativarFlyTemporario()
-                        logarAcao("Lanterna", "Lanterna coletada com sucesso!", 2)
-                    end
-                end
-            else
-                logarAcao("Erro", "ProximityPrompt da Lanterna não encontrado.", 2)
+        local prompt = lightModel and (lightModel:FindFirstChild("ProximityPrompt") or lightModel:FindFirstChildOfClass("ProximityPrompt", true))
+        local hrp = getHRP()
+        if hrp and prompt then
+            local posOriginal = hrp.CFrame
+            local parteAlvo = lightModel:IsA("BasePart") and lightModel or lightModel:FindFirstChildWhichIsA("BasePart", true)
+            if parteAlvo then
+                ativarFlyTemporario(hrp)
+                hrp.CFrame = parteAlvo.CFrame
+                task.wait(0.08)
+                fireproximityprompt(prompt)
+                task.wait(0.08)
+                hrp.CFrame = posOriginal
+                task.wait(0.02)
+                desativarFlyTemporario()
             end
-        else
-            logarAcao("Aviso", "Objeto 'Light' não encontrado no workspace.", 2.5)
         end
     end
 })
@@ -847,20 +822,12 @@ TabGeral:CreateButton({
 TabGeral:CreateButton({
     Name = "Reviver (Voltar Posição da Morte)",
     Callback = function()
-        if UltimaPosicaoMorte then
-            local hrp = getHRP()
-            if hrp then
-                hrp.CFrame = UltimaPosicaoMorte
-                logarAcao("Teleporte", "Retornado com sucesso para o local da última morte!", 2)
-            end
-        else
-            logarAcao("Aviso", "Nenhuma morte registrada nesta sessão ainda.", 3)
-        end
+        local hrp = getHRP()
+        if hrp and UltimaPosicaoMorte then hrp.CFrame = UltimaPosicaoMorte end
     end
 })
 
 TabGeral:CreateSection("Visualização e Ambiente")
-
 TabGeral:CreateToggle({
     Name = "Desbloquear Câmera (Zoom Livre)",
     CurrentValue = false,
@@ -871,31 +838,19 @@ TabGeral:CreateToggle({
             LocalPlayer.CameraMode = Enum.CameraMode.Classic
             LocalPlayer.CameraMaxZoomDistance = 100000
             LocalPlayer.CameraMinZoomDistance = 0.5
-            Camera.CameraType = Enum.CameraType.Custom
-            
-            LocalPlayer.CameraMinZoomDistance = 15
-            task.wait(0.05)
-            LocalPlayer.CameraMinZoomDistance = 0.5
-            
-            logarAcao("Câmera", "Câmera desbloqueada! Use a rolagem do mouse para controlar o zoom.")
         else
             LocalPlayer.CameraMaxZoomDistance = 128
-            LocalPlayer.CameraMinZoomDistance = 0.5
-            Camera.CameraType = Enum.CameraType.Custom
         end
     end
 })
 
+-- Loop de Gerenciamento da Camera Render
 task.spawn(function()
     while true do
         task.wait(0.2)
         if TerceiraPessoaAtiva then
-            if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then
-                LocalPlayer.CameraMode = Enum.CameraMode.Classic
-            end
-            if LocalPlayer.CameraMaxZoomDistance < 100000 then
-                LocalPlayer.CameraMaxZoomDistance = 100000
-            end
+            if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then LocalPlayer.CameraMode = Enum.CameraMode.Classic end
+            if LocalPlayer.CameraMaxZoomDistance < 100000 then LocalPlayer.CameraMaxZoomDistance = 100000 end
         end
         if SpectateAtivo and JogadorSelecionadoNome ~= "" then
             local alvo = Players:FindFirstChild(JogadorSelecionadoNome)
@@ -933,7 +888,7 @@ TabGeral:CreateToggle({
                         for _, r in ipairs(ruidos) do
                             local pasta = pGui:FindFirstChild(r)
                             local scr = pasta and pasta:FindFirstChild("screen")
-                            if scr then scr:Destroy() end
+                            if scr then pcall(function() scr:Destroy() end) end
                         end
                     end
                     task.wait(0.1)
@@ -953,7 +908,7 @@ TabGeral:CreateToggle({
             task.spawn(function()
                 while LoopColorirAtivo do
                     for _, o in ipairs(workspace:GetChildren()) do
-                        if string.lower(o.Name) == "colorir" then interagirComObjeto(o); task.wait(0.3) end
+                        if string.lower(o.Name) == "colorir" then interagirComObjeto(o); task.wait(0.2) end
                     end
                     task.wait(0.1)
                 end
@@ -970,51 +925,41 @@ TabGeral:CreateButton({
         if hrp and workspace:FindFirstChild("SpawnLocation") then hrp.CFrame = workspace.SpawnLocation.CFrame + Vector3.new(0, 3, 0) end
     end
 })
-TabGeral:CreateButton({ Name = "Vender Itens", Callback = function() acionarFluxoVendas() end })
+TabGeral:CreateButton({ Name = "Vender Itens", Callback = acionarFluxoVendas })
 
--- ABA: DANÇAS & EMOTES
+-- ABA: EMOTES
 TabDancas:CreateSection("Chat")
 local comandos = {
-    {"Dança 1", "/e dance"},
-    {"Dança 2", "/e dance2"},
-    {"Dança 3", "/e dance3"},
-    {"Acenar", "/e wave"},
-    {"Comemorar", "/e cheer"},
-    {"Rir", "/e laugh"},
-    {"Apontar", "/e point"}
+    {"Dança 1", "/e dance"}, {"Dança 2", "/e dance2"}, {"Dança 3", "/e dance3"},
+    {"Acenar", "/e wave"}, {"Comemorar", "/e cheer"}, {"Rir", "/e laugh"}, {"Apontar", "/e point"}
 }
 for _, cmd in ipairs(comandos) do
     TabDancas:CreateButton({ Name = cmd[1], Callback = function() enviarChat(cmd[2]) end })
 end
 
--- =============================================================================
--- ESCUTAS DINÂMICAS DE EVENTOS
--- =============================================================================
+-- ABA: MUNDO DO CAOS
+TabChaos:CreateSection("Loops")
+TabChaos:CreateToggle({ Name = "Loop: de Portas (Spam)", CurrentValue = false, Flag = "ChaosPortasSpam", Callback = function(V) ChaosPortasAtivo = V end })
+TabChaos:CreateToggle({ Name = "Loop: Elevador Maluco (Cima/Baixo)", CurrentValue = false, Flag = "ChaosElevadorSpam", Callback = function(V) ChaosElevadorAtivo = V end })
+TabChaos:CreateSection("Loops de Jogadores")
+TabChaos:CreateToggle({ Name = "Loop: Jumpscare em Massa", CurrentValue = false, Flag = "ChaosJumpscareSpam", Callback = function(V) ChaosJumpscareAtivo = V end })
+
+-- Ouvintes Síncronos do Ambiente (Otimizados)
 workspace.DescendantAdded:Connect(function(desc)
     if ESPAtivo and desc.Parent and desc.Parent.Name == "Scraps" then pcall(atualizarESP) end
-    if ESPPortoesAtivo and desc.Name == "Object_0" and desc.Parent and desc.Parent.Name == "ButtonDoor" then task.wait(0.2); pcall(atualizarESPPortoes) end
-    if ESPElevadorAtivo and desc.Name == "Elevador" then task.wait(0.2); pcall(atualizarESPElevador) end
 end)
-
 workspace.DescendantRemoving:Connect(function(desc)
     if ESPAtivo and desc.Parent and desc.Parent.Name == "Scraps" then pcall(atualizarESP) end
-    if ESPPortoesAtivo and desc.Name == "Object_0" then pcall(atualizarESPPortoes) end
-    if ESPElevadorAtivo and desc.Name == "Elevador" then pcall(atualizarESPElevador) end
 end)
 
-Players.PlayerAdded:Connect(function() if ESPJogadoresAtivo then task.wait(1); pcall(atualizarESPJogadores) end end)
-Players.PlayerRemoving:Connect(function() if ESPJogadoresAtivo then pcall(atualizarESPJogadores) end end)
-
--- =============================================================================
--- VERIFICAÇÃO INICIAL AUTO-LOAD (AUTO-HOP ATIVO ANTERIORMENTE)
--- =============================================================================
+-- Auto-Load Verificação de Rotação
 if readfile and isfile and isfile("LethalApe_AutoHop.txt") then
     local status = readfile("LethalApe_AutoHop.txt")
     if status == "true" then
         task.spawn(function()
             repeat task.wait(0.5) until ToggleAutoHop ~= nil
             ToggleAutoHop:Set(true)
-            logarAcao("AutoHop", "Novo servidor carregado. Farm reiniciado automaticamente!", 4)
+            logarAcao("AutoHop", "Servidor Rotacionado! Farm reativado.", 3)
         end)
     end
 end
